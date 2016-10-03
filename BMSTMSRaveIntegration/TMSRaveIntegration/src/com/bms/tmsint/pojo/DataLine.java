@@ -5,15 +5,17 @@ public class DataLine {
         super();
     }
     
-    public DataLine(String url,String text) {
+    public DataLine(String url,String text,String jobId) {
         super();
         this.url = url;
-        this.text = text;       
+        this.text = text; 
+        this.jobId = jobId;
     }
     
     
     private String url;
     private String text;
+    private String jobId;
 
     public void setUrl(String url) {
         this.url = url;
@@ -29,5 +31,13 @@ public class DataLine {
 
     public String getText() {
         return text;
+    }
+
+    public void setJobId(String jobId) {
+        this.jobId = jobId;
+    }
+
+    public String getJobId() {
+        return jobId;
     }
 }
