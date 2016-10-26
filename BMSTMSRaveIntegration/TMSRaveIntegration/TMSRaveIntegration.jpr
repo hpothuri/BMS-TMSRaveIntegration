@@ -46,6 +46,11 @@
       <string v="oracle.toplink.workbench.addin/toplinkContentSet"/>
    </list>
    <value n="defaultPackage" v="com.bms.tmsint"/>
+   <hash n="oracle.ide.model.TechnologyScopeConfiguration">
+      <list n="technologyScope">
+         <string v="Java"/>
+      </list>
+   </hash>
    <hash n="oracle.jdeveloper.compiler.OjcConfiguration">
       <value n="internalEncoding" v="Cp1252"/>
       <list n="Javac.commandline.optionlist">
@@ -61,6 +66,51 @@
       </list>
       <value n="webIANAEncoding" v="windows-1252"/>
    </hash>
+   <hash n="oracle.jdeveloper.deploy.dt.DeploymentProfiles">
+      <hash n="profileDefinitions">
+         <hash n="BMSIntegrationJar">
+            <hash n="archiveOptions">
+               <list n="additionalManifests">
+                  <url path="src/META-INF/MANIFEST.MF"/>
+               </list>
+               <value n="hasManifest" v="true"/>
+            </hash>
+            <hash n="fileGroups">
+               <list n="groups">
+                  <hash>
+                     <list n="contributors">
+                        <hash>
+                           <value n="type" v="2"/>
+                        </hash>
+                        <hash>
+                           <value n="type" v="7"/>
+                        </hash>
+                     </list>
+                     <value n="displayName" v="Project Output"/>
+                     <hash n="filters">
+                        <list n="rules">
+                           <hash>
+                              <value n="DefaultFilters" v=""/>
+                           </hash>
+                        </list>
+                     </hash>
+                     <value n="internalName" v="project-output"/>
+                     <value n="type" v="1"/>
+                  </hash>
+               </list>
+            </hash>
+            <url n="jarURL" path="deploy/BMSIntegrationJar.jar"/>
+            <hash n="libraryDependencies">
+               <value n="IncludeLibrariesFromOtherContainers" v="true"/>
+            </hash>
+            <value n="profileClass" v="oracle.jdeveloper.deploy.jar.ArchiveProfile"/>
+            <value n="profileName" v="BMSIntegrationJar"/>
+         </hash>
+      </hash>
+      <list n="profileList">
+         <string v="BMSIntegrationJar"/>
+      </list>
+   </hash>
    <hash n="oracle.jdeveloper.model.J2eeSettings">
       <value n="j2eeWebAppName" v="BMSTMSRaveIntegration"/>
       <value n="j2eeWebContextRoot" v="BMSTMSRaveIntegration"/>
@@ -68,11 +118,7 @@
    <hash n="oracle.jdevimpl.config.JProjectLibraries">
       <list n="exportedReferences">
          <hash>
-            <value n="id" v="Com.bea.core.datasource_1.9.0.0.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Commons-codec-1.2.jar"/>
+            <value n="id" v="Commons-codec-1.9.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
@@ -80,31 +126,27 @@
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Commons-httpclient-3.1.jar"/>
+            <value n="id" v="Httpclient-4.5.2.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Commons-lang3-3.4.jar"/>
+            <value n="id" v="Httpcore-4.4.4.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Commons-logging-1.0.4.jar"/>
+            <value n="id" v="Commons-lang3-3.5.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Ojdbc6.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Resolver.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Serializer.jar"/>
+            <value n="id" v="Commons-logging-1.2.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
             <value n="id" v="XercesImpl.jar"/>
+            <value n="isJDK" v="false"/>
+         </hash>
+         <hash>
+            <value n="id" v="Ojdbc6.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
@@ -116,20 +158,11 @@
          <list n="libraryDefinitions">
             <hash>
                <list n="classPath">
-                  <url path="../lib/com.bea.core.datasource_1.9.0.0.jar" jar-entry=""/>
+                  <url path="../lib/commons-codec-1.9.jar" jar-entry=""/>
                </list>
                <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Com.bea.core.datasource_1.9.0.0.jar"/>
-               <value n="id" v="Com.bea.core.datasource_1.9.0.0.jar"/>
-               <value n="locked" v="true"/>
-            </hash>
-            <hash>
-               <list n="classPath">
-                  <url path="../lib/commons-codec-1.2.jar" jar-entry=""/>
-               </list>
-               <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Commons-codec-1.2.jar"/>
-               <value n="id" v="Commons-codec-1.2.jar"/>
+               <value n="description" v="Commons-codec-1.9.jar"/>
+               <value n="id" v="Commons-codec-1.9.jar"/>
                <value n="locked" v="true"/>
             </hash>
             <hash>
@@ -143,56 +176,38 @@
             </hash>
             <hash>
                <list n="classPath">
-                  <url path="../lib/commons-httpclient-3.1.jar" jar-entry=""/>
+                  <url path="../lib/httpclient-4.5.2.jar" jar-entry=""/>
                </list>
                <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Commons-httpclient-3.1.jar"/>
-               <value n="id" v="Commons-httpclient-3.1.jar"/>
+               <value n="description" v="Httpclient-4.5.2.jar"/>
+               <value n="id" v="Httpclient-4.5.2.jar"/>
                <value n="locked" v="true"/>
             </hash>
             <hash>
                <list n="classPath">
-                  <url path="../lib/commons-lang3-3.4.jar" jar-entry=""/>
+                  <url path="../lib/httpcore-4.4.4.jar" jar-entry=""/>
                </list>
                <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Commons-lang3-3.4.jar"/>
-               <value n="id" v="Commons-lang3-3.4.jar"/>
+               <value n="description" v="Httpcore-4.4.4.jar"/>
+               <value n="id" v="Httpcore-4.4.4.jar"/>
                <value n="locked" v="true"/>
             </hash>
             <hash>
                <list n="classPath">
-                  <url path="../lib/commons-logging-1.0.4.jar" jar-entry=""/>
+                  <url path="../lib/commons-lang3-3.5.jar" jar-entry=""/>
                </list>
                <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Commons-logging-1.0.4.jar"/>
-               <value n="id" v="Commons-logging-1.0.4.jar"/>
+               <value n="description" v="Commons-lang3-3.5.jar"/>
+               <value n="id" v="Commons-lang3-3.5.jar"/>
                <value n="locked" v="true"/>
             </hash>
             <hash>
                <list n="classPath">
-                  <url path="../lib/ojdbc6.jar" jar-entry=""/>
+                  <url path="../lib/commons-logging-1.2.jar" jar-entry=""/>
                </list>
                <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Ojdbc6.jar"/>
-               <value n="id" v="Ojdbc6.jar"/>
-               <value n="locked" v="true"/>
-            </hash>
-            <hash>
-               <list n="classPath">
-                  <url path="../lib/resolver.jar" jar-entry=""/>
-               </list>
-               <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Resolver.jar"/>
-               <value n="id" v="Resolver.jar"/>
-               <value n="locked" v="true"/>
-            </hash>
-            <hash>
-               <list n="classPath">
-                  <url path="../lib/serializer.jar" jar-entry=""/>
-               </list>
-               <value n="deployedByDefault" v="true"/>
-               <value n="description" v="Serializer.jar"/>
-               <value n="id" v="Serializer.jar"/>
+               <value n="description" v="Commons-logging-1.2.jar"/>
+               <value n="id" v="Commons-logging-1.2.jar"/>
                <value n="locked" v="true"/>
             </hash>
             <hash>
@@ -202,6 +217,15 @@
                <value n="deployedByDefault" v="true"/>
                <value n="description" v="XercesImpl.jar"/>
                <value n="id" v="XercesImpl.jar"/>
+               <value n="locked" v="true"/>
+            </hash>
+            <hash>
+               <list n="classPath">
+                  <url path="../lib/ojdbc6.jar" jar-entry=""/>
+               </list>
+               <value n="deployedByDefault" v="true"/>
+               <value n="description" v="Ojdbc6.jar"/>
+               <value n="id" v="Ojdbc6.jar"/>
                <value n="locked" v="true"/>
             </hash>
             <hash>
@@ -217,11 +241,7 @@
       </hash>
       <list n="libraryReferences">
          <hash>
-            <value n="id" v="Com.bea.core.datasource_1.9.0.0.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Commons-codec-1.2.jar"/>
+            <value n="id" v="Commons-codec-1.9.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
@@ -229,31 +249,27 @@
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Commons-httpclient-3.1.jar"/>
+            <value n="id" v="Httpclient-4.5.2.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Commons-lang3-3.4.jar"/>
+            <value n="id" v="Httpcore-4.4.4.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Commons-logging-1.0.4.jar"/>
+            <value n="id" v="Commons-lang3-3.5.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
-            <value n="id" v="Ojdbc6.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Resolver.jar"/>
-            <value n="isJDK" v="false"/>
-         </hash>
-         <hash>
-            <value n="id" v="Serializer.jar"/>
+            <value n="id" v="Commons-logging-1.2.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
             <value n="id" v="XercesImpl.jar"/>
+            <value n="isJDK" v="false"/>
+         </hash>
+         <hash>
+            <value n="id" v="Ojdbc6.jar"/>
             <value n="isJDK" v="false"/>
          </hash>
          <hash>
