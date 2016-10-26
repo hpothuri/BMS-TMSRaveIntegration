@@ -55,20 +55,61 @@ import oracle.sql.ArrayDescriptor;
 import oracle.sql.StructDescriptor;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.Credentials;
+import org.apache.http.HttpException;
+import org.apache.http.HttpStatus;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.auth.Credentials;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.conn.socket.LayeredConnectionSocketFactory;
+import org.apache.http.conn.ssl.X509HostnameVerifier;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.xml.serialize.OutputFormat;
 import org.apache.xml.serialize.XMLSerializer;
+
+import java.io.IOException;
+
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.LayeredConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLContexts;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.apache.http.conn.ssl.X509HostnameVerifier;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 import org.w3c.dom.Document;
 
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.util.EntityUtils;
 
 public class TMSRaveIntegration {
     public TMSRaveIntegration() {
@@ -90,7 +131,7 @@ public class TMSRaveIntegration {
     private static final String JOB_STATUS_EXTRACTED = "EXTRACTED";
     private static final String JOB_STATUS_ERROR = "ERROR_EXT";
 
-    private void deleteExtractData(Connection conn, CallableStatement cstmt) throws SQLException {
+    private static void deleteExtractData(Connection conn, CallableStatement cstmt) throws SQLException {
         String sqlQuery = "begin TMSINT_XFER_UTILS.DELETE_EXTRACT_DATA(?,?); end;";
         cstmt = conn.prepareCall(sqlQuery);
         cstmt.setString(1, null);
@@ -128,30 +169,24 @@ public class TMSRaveIntegration {
     //        return dataLines;
     //    }
 
-    private List<DataLine> fetchDataLinesFromURL(Connection conn, String jobId) throws SQLException,
-                                                                                                       MalformedURLException,
-                                                                                                       IOException,
-                                                                                                       NoSuchAlgorithmException,
-                                                                                                       KeyManagementException {
-        List<DataLine> dataLines = new ArrayList<DataLine>();       
+    private static List<DataLine> fetchDataLinesFromURL(Connection conn, String jobId) throws SQLException,
+                                                                                       MalformedURLException,
+                                                                                       IOException,
+                                                                                       NoSuchAlgorithmException,
+                                                                                       KeyManagementException {
+        List<DataLine> dataLines = new ArrayList<DataLine>();
         PreparedStatement stmt = null;
         ResultSet rs = null;
-        
+
         //  2.) Determine WHAT DatafileURLS are applicable to the client at hand...
         String sqlQuery =
-            "  SELECT j.job_id," + 
-            "           j.datafile_url," + 
-            "           j.url_user_name," + 
-            "           j.url_password," +
+            "  SELECT j.job_id," + "           j.datafile_url," + "           j.url_user_name," + "           j.url_password," +
             "           j.data_extract_type," +
             "           to_char(next_incr_extract_ts,'YYYY-MM-DD')||'T'||to_char(next_incr_extract_ts,'HH24:MI:SS') next_incr_extract_ts," +
-            "           m.dcm_name," + 
-            "           m.vt_name" +
+            "           m.dcm_name," + "           m.vt_name" +
             "  FROM TABLE(tmsint_job_queue_utils.process_from_job_queue(pJobStatus => 'SUBMITTED'))   j," +
-            "       TABLE(tmsint_xfer_utils.query_dict_mapping()) m" + 
-            "  WHERE j.datafile_id = m.datafile_id" +
-            "  AND j.job_id = ?" +
-            "  ORDER by j.job_priority, j.job_id, j.datafile_id";
+            "       TABLE(tmsint_xfer_utils.query_dict_mapping()) m" + "  WHERE j.datafile_id = m.datafile_id" +
+            "  AND j.job_id = ?" + "  ORDER by j.job_priority, j.job_id, j.datafile_id";
 
         stmt = conn.prepareStatement(sqlQuery);
         stmt.setString(1, jobId);
@@ -164,7 +199,7 @@ public class TMSRaveIntegration {
             //       Each Line of the HTML data file should be written to the HTLM extract staging table
             //       via the API below:
 
-            String extractType = rs.getString("data_extract_type");            
+            String extractType = rs.getString("data_extract_type");
 
             sourceUrl = new StringBuilder(rs.getString("datafile_url") + "/" + rs.getString("dcm_name"));
 
@@ -177,13 +212,13 @@ public class TMSRaveIntegration {
             if (sourceUrl != null && userName != null && password != null)
                 dataLines.addAll(getClinicalDataFromMedidata(jobId, sourceUrl.toString(), userName, password));
         }
-        
+
         JDBCUtil.closeResultSet(rs);
         JDBCUtil.closeStatement(stmt);
         return dataLines;
     }
 
-    private void insertExtractedDataIntoTMS(Connection conn, CallableStatement cstmt,
+    private static void insertExtractedDataIntoTMS(Connection conn, CallableStatement cstmt,
                                             List<DataLine> dataLines) throws SQLException {
         if (dataLines != null && dataLines.size() > 0) {
 
@@ -211,20 +246,21 @@ public class TMSRaveIntegration {
         }
     }
 
-    private void analyzeExtractTable(Connection conn, CallableStatement cstmt) throws SQLException {
+    private static void analyzeExtractTable(Connection conn, CallableStatement cstmt) throws SQLException {
         String sqlQuery = "begin TMSINT_XFER_UTILS.ANALYZE_XFER_TABLES(); end;";
         cstmt = conn.prepareCall(sqlQuery);
         cstmt.executeUpdate();
     }
 
 
-    public String extractClinicalDataFromURL() {
+    public static String extractClinicalDataFromURL() {
         String returnMsg = "Clinical data has been successfully extracted from Medidata and pushed to TMS.";
-        List<DataLine> dataLines = new ArrayList<DataLine>();
+        List<DataLine> dataLines = null;
         Connection conn = null;
         CallableStatement cstmt = null;
         Statement stmt = null;
         ResultSet rs = null;
+        String jobId = null;
 
         try {
 
@@ -237,7 +273,7 @@ public class TMSRaveIntegration {
                         e.getMessage();
                 return returnMsg;
             }
-            
+
             // DELETE EXISTING ROWS IN EXTRACT TABLE
             try {
                 deleteExtractData(conn, cstmt);
@@ -251,79 +287,45 @@ public class TMSRaveIntegration {
             // ITERATE OVER JOBS IN SUBMITTED STATE
             try {
                 String sqlQuery =
-                    "  SELECT DISTINCT job_id, client_alias " +
-                    "  FROM TABLE( tmsint_job_queue_utils.process_from_job_queue(pJobStatus => 'SUBMITTED'))";
+                    "  SELECT DISTINCT job_id, client_alias " + "  FROM TABLE( tmsint_job_queue_utils.process_from_job_queue(pJobStatus => 'SUBMITTED'))";
 
                 stmt = conn.createStatement();
                 rs = stmt.executeQuery(sqlQuery);
 
                 while (rs.next()) {
-                                        
-                    String jobId = rs.getString("job_id");
-                    
-                    try {                        
+
+                    jobId = rs.getString("job_id");
+                    dataLines = new ArrayList<DataLine>();
+
+                    try {
                         dataLines.addAll(fetchDataLinesFromURL(conn, jobId));
-                        
+
+                        // insert extracted lines for the current job
+                        insertExtractedDataIntoTMS(conn, cstmt, dataLines);
+
                         //UPDATE JOB STATUS TO EXTRACTED
-                        try {
-                            updateJobStatus(conn, jobId, rs.getString("client_alias"),
-                                            JOB_STATUS_EXTRACTED, null);                       
-                            
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            returnMsg = "Error while setting job status to EXTRACTED for job id" + jobId + ".Error message is " +
-                                    e.getMessage();
-                            return returnMsg;
-                        }
+//                        updateJobStatus(conn, jobId, rs.getString("client_alias"), JOB_STATUS_EXTRACTED, null);
 
-
-                    } catch (SQLException e) {
-                        returnMsg =
-                                "Error while hitting the sql to fetch candidate data files for job id "+ jobId+".Error message is " +
-                                    e.getMessage();
-                        //  return returnMsg;
-                        
-                        //UPDATE JOB STATUS TO ERROR_EXT
-                        try {
-                            updateJobStatus(conn, jobId, rs.getString("client_alias"),
-                                            JOB_STATUS_ERROR, e.getMessage());                   
-                        } catch (Exception ex) {
-                            e.printStackTrace();
-                            returnMsg = "Error while setting job status to ERROR_EXT for job id" + jobId + ".Error message is " +
-                                    e.getMessage();
-                            return returnMsg;
-                        }
-                        
                     } catch (Exception e) {
                         e.printStackTrace();
-                        returnMsg = "Error reading the data from Medidata. Error message is " +
-                                    e.getMessage();
-                        // return returnMsg;
-                        
+                        returnMsg = "Error while processing job " + jobId + ".The error message is " + e.getMessage();
+
                         //UPDATE JOB STATUS TO ERROR_EXT
-                        try {
-                            updateJobStatus(conn, jobId, rs.getString("client_alias"),
-                                            JOB_STATUS_ERROR, e.getMessage());                     
-                        } catch (Exception ex) {
-                            e.printStackTrace();
-                            returnMsg = returnMsg+"Error while setting job status to ERROR_EXT for job id" + jobId + ".Error message is " +
-                                    e.getMessage();
-                            return returnMsg;
-                        }
+//                        try {
+//                            updateJobStatus(conn, jobId, rs.getString("client_alias"), JOB_STATUS_ERROR,
+//                                            e.getMessage());
+//                        } catch (Exception ex) {
+//                            e.printStackTrace();
+//                            returnMsg =
+//                                    returnMsg + "Error while setting job status to ERROR_EXT for job id" + jobId + ".Error message is " +
+//                                    e.getMessage();
+//                            return returnMsg;
+//                        }
                     }
                 }
 
             } catch (Exception e) {
                 returnMsg = "Error while fetching the jobs in submitted state.\n" +
-                        e.getMessage();
-                return returnMsg;
-            }
-
-            try {
-                insertExtractedDataIntoTMS(conn, cstmt, dataLines);
-
-            } catch (Exception e) {
-                returnMsg = "Error while pushing the data to interface tables.\n" +
                         e.getMessage();
                 return returnMsg;
             }
@@ -348,9 +350,10 @@ public class TMSRaveIntegration {
         }
         return returnMsg;
     }
-    
-    private void updateJobStatus(Connection conn,String jobId,String clientAlias, String jobStatus,String errorMessage) throws SQLException {
-        CallableStatement cstmt =null;
+
+    private static void updateJobStatus(Connection conn, String jobId, String clientAlias, String jobStatus,
+                                 String errorMessage) throws SQLException {
+        CallableStatement cstmt = null;
         String sqlQuery = "begin tmsint_job_queue_utils.update_job_status(?,?,?,?); end;";
         cstmt = conn.prepareCall(sqlQuery);
         cstmt.setString("pJobID", jobId);
@@ -358,7 +361,7 @@ public class TMSRaveIntegration {
         cstmt.setString("pJobStatus", jobStatus);
         cstmt.setString("pErrorMsg", errorMessage);
         cstmt.executeUpdate();
-        
+
         JDBCUtil.closeStatement(cstmt);
     }
 
@@ -653,7 +656,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
     }
 
 
-    private List<DataLine> getClinicalDataFromMedidata(String jobId, String sourceUrl, String userName,
+    private static List<DataLine> getClinicalDataFromMedidata(String jobId, String sourceUrl, String userName,
                                                        String password) throws MalformedURLException, IOException,
                                                                                NoSuchAlgorithmException,
                                                                                KeyManagementException {
@@ -661,31 +664,33 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
         List<DataLine> dataLines = new ArrayList<DataLine>();
         List<String> textLines = new ArrayList<String>();
 
-//                HttpClient client = new HttpClient(); // Apache's Http client
-//                Credentials credentials = new UsernamePasswordCredentials(userName, password);
-//        
-//                client.getState().setCredentials(AuthScope.ANY, credentials);
-//                client.getState().setProxyCredentials(AuthScope.ANY, credentials); // may not be necessary
-//        
-//                client.getParams().setAuthenticationPreemptive(true); // send authentication details in the header
-//        
-//                GetMethod httpget = new GetMethod(sourceUrl);
-//                int statusCode = client.executeMethod(httpget);
+        //                HttpClient client = new HttpClient(); // Apache's Http client
+        //                Credentials credentials = new UsernamePasswordCredentials(userName, password);
+        //
+        //                client.getState().setCredentials(AuthScope.ANY, credentials);
+        //                client.getState().setProxyCredentials(AuthScope.ANY, credentials); // may not be necessary
+        //
+        //                client.getParams().setAuthenticationPreemptive(true); // send authentication details in the header
+        //
+        //                GetMethod httpget = new GetMethod(sourceUrl);
+        //                int statusCode = client.executeMethod(httpget);
 
-        String authString = userName + ":" + password;
-        byte[] authEncBytes = Base64.encodeBase64(authString.getBytes());
-        String authStringEnc = new String(authEncBytes);
-        ignoreAllTrusts();
-        URL url = new URL(sourceUrl);
-        URLConnection con = url.openConnection();
-        con.setRequestProperty("Authorization", "Basic " + authStringEnc);
-
-//                if (statusCode == HttpStatus.SC_OK) {
-//                    BufferedInputStream reader = new BufferedInputStream(httpget.getResponseBodyAsStream());
-        BufferedInputStream reader = new BufferedInputStream(con.getInputStream());
-        BufferedReader br = new BufferedReader(new InputStreamReader(reader));
-        String line = null;
-        while ((line = br.readLine()) != null) {
+        //        String authString = userName + ":" + password;
+        //        String authString = "DCaruso:QuanYin1";
+        //        byte[] authEncBytes = Base64.encodeBase64(authString.getBytes());
+        //        String authStringEnc = new String(authEncBytes);
+        //        //        ignoreAllTrusts();
+        //
+        //        URL url = new URL(sourceUrl.replace(" ", "%20"));
+        //        URLConnection con = url.openConnection();
+        //        con.setRequestProperty("Authorization", "Basic " + authStringEnc);
+        //
+        //        //                if (statusCode == HttpStatus.SC_OK) {
+        //        //                    BufferedInputStream reader = new BufferedInputStream(httpget.getResponseBodyAsStream());
+        //        BufferedInputStream reader = new BufferedInputStream(con.getInputStream());
+        //        BufferedReader br = new BufferedReader(new InputStreamReader(reader));
+        String line = returnHttpGetResponse(sourceUrl, userName, password);
+        if (line != null) {
             line = line.replaceAll("[^\\x20-\\x7e]", "");
             line = format(line);
             //                System.out.println("Formatted xml before split");
@@ -701,9 +706,117 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
                     dataLines.add(new DataLine(sourceUrl, text, jobId));
             }
         }
-//                }
+        //                }
         return dataLines;
     }
+
+    private static String returnHttpGetResponse(String url, String userName, String password) {
+
+        String response = null;
+
+        CloseableHttpClient closeableHttpClient = null;
+        CloseableHttpResponse closeableHttpResponse = null;
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(userName, password));
+
+        try {
+            HttpGet httpGet = null;
+            TrustStrategy trustStrategy = null;
+            SSLContext sslContext = null;
+            X509HostnameVerifier x509HostnameVerifier = null;
+            LayeredConnectionSocketFactory sslConnectionSocketFactory = null;
+            Registry<ConnectionSocketFactory> registry = null;
+            PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = null;
+            RequestConfig requestConfig = null;
+
+            httpGet = new HttpGet(url.replace(" ", "%20"));
+
+            trustStrategy = new TrustStrategy() {
+                    @Override
+                    public boolean isTrusted(X509Certificate[] xcs, String authType) throws CertificateException {
+                        return true;
+                    }
+                };
+
+            sslContext =
+                    SSLContexts.custom().useSSL().loadTrustMaterial(null, trustStrategy).setSecureRandom(new SecureRandom()).build();
+
+            x509HostnameVerifier = new X509HostnameVerifier() {
+                    @Override
+                    public void verify(String host, SSLSocket ssl) throws IOException {
+                        //do nothing
+                    }
+
+                    @Override
+                    public void verify(String host, X509Certificate cert) throws SSLException {
+                        //do nothing                                                            //do nothing
+                    }
+
+                    @Override
+                    public void verify(String host, String[] cns, String[] subjectAlts) throws SSLException {
+                        //do nothing
+                    }
+
+                    @Override
+                    public boolean verify(String string, SSLSession ssls) {
+                        return true;
+                    }
+                };
+
+            //either one works
+            sslConnectionSocketFactory =
+                    new SSLConnectionSocketFactory(sslContext, new String[] { "TLSv1" }, null, SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+            //            sslConnectionSocketFactory =
+            //                    new SSLConnectionSocketFactory(sslContext, new String[] { "TLSv1" }, null, x509HostnameVerifier);
+
+            registry =
+                    RegistryBuilder.<ConnectionSocketFactory>create().register("http", PlainConnectionSocketFactory.getSocketFactory()).register("https",
+                                                                                                                                                 sslConnectionSocketFactory).build();
+
+            poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
+
+            requestConfig = RequestConfig.custom().setConnectTimeout(5000). //5 seconds
+                    setConnectionRequestTimeout(5000).setSocketTimeout(5000).build();
+
+            closeableHttpClient =
+                    HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).setSslcontext(sslContext).setHostnameVerifier(x509HostnameVerifier).setSSLSocketFactory(sslConnectionSocketFactory).setConnectionManager(poolingHttpClientConnectionManager).setDefaultCredentialsProvider(credsProvider).build();
+
+            if (closeableHttpClient != null) {
+                
+                closeableHttpResponse = closeableHttpClient.execute(httpGet);
+                if (closeableHttpResponse != null) {
+                    int statusCode = closeableHttpResponse.getStatusLine().getStatusCode();
+                    if (200 == statusCode)
+                        response = EntityUtils.toString(closeableHttpResponse.getEntity());
+                }
+            }
+        } catch (NoSuchAlgorithmException noSuchAlgorithmException) {
+            System.out.println(noSuchAlgorithmException.getMessage());
+        } catch (KeyStoreException keyStoreException) {
+            System.out.println(keyStoreException.getMessage());
+        } catch (KeyManagementException keyManagementException) {
+            System.out.println(keyManagementException.getMessage());
+        } catch (IOException iOException) {
+            System.out.println(iOException.getMessage());
+        } finally {
+            if (closeableHttpResponse != null) {
+                try {
+                    closeableHttpResponse.close();
+                } catch (IOException iOException) {
+                    System.out.println(iOException.getMessage());
+                }
+            }
+            if (closeableHttpClient != null) {
+                try {
+                    closeableHttpClient.close();
+                } catch (IOException iOException) {
+                    System.out.println(iOException.getMessage());
+                }
+            }
+        }
+        return response;
+    }
+
 
     private ReturnStatus postClinicalDataToMedidata(String serviceUrl, String xmlReqBody, String userName,
                                                     String password) throws IOException, HttpException,
@@ -757,7 +870,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
         else {
             status.setStatus(ReturnStatus.FAIL);
             status.setErrorCode(con.getResponseCode() + "");
-            status.setErrorMessage(HttpStatus.getStatusText(con.getResponseCode()) + "-" + con.getInputStream());
+            //            status.setErrorMessage(HttpStatus.getStatusText(con.getResponseCode()) + "-" + con.getInputStream());
         }
         return status;
     }
@@ -786,7 +899,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
     //    }
 
 
-    private String format(String unformattedXml) {
+    private static String format(String unformattedXml) {
         try {
             final Document document = parseXmlFile(unformattedXml);
 
@@ -804,7 +917,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
         }
     }
 
-    private Document parseXmlFile(String in) {
+    private static Document parseXmlFile(String in) {
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             DocumentBuilder db = dbf.newDocumentBuilder();
@@ -835,7 +948,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
             } };
 
         // Install the all-trusting trust manager
-        SSLContext sc = SSLContext.getInstance("SSL");
+        SSLContext sc = SSLContext.getInstance("TLSv1");
         sc.init(null, trustAllCerts, new java.security.SecureRandom());
         HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
 
@@ -853,6 +966,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
 
     public static void main(String[] args) {
         TMSRaveIntegration ex = new TMSRaveIntegration();
+        //        ex.returnHttpGetResponse("https://bmsdev.mdsol.com/RaveWebServices/studies/TMS Coding Study 1(DEV)/datasets/regular/PRETRTEV","DCaruso","QuanYin1");
         System.out.println(ex.extractClinicalDataFromURL());
 
         //   System.out.println(ex.importClinicalDataToURL());

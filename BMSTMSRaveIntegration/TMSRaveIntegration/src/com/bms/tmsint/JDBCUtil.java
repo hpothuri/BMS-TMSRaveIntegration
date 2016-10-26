@@ -26,7 +26,9 @@ public class JDBCUtil {
     public static Connection getConnection() throws Exception {
         Class.forName("oracle.jdbc.driver.OracleDriver");
 //        Connection conn = DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//23.246.122.46:79/ORT501", "TMSINT_XFER_INV", "TMSINT_XFER_INV");
-       Connection conn = DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//23.246.122.46:78/TMS51", "TMSINT_XFER_INV", "TMSINT_XFER_INV");
+//       Connection conn = DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//23.246.122.46:78/TMS51", "TMSINT_XFER_INV", "TMSINT_XFER_INV");
+        Connection conn = DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_BMS/TMSINT_XFER_BMS@//23.246.122.46:78/TMS51", "TMSINT_XFER_BMS", "TMSINT_XFER_BMS");
+//        Connection conn = DriverManager.getConnection("jdbc:default:connection:");
         return conn;
     }
 
