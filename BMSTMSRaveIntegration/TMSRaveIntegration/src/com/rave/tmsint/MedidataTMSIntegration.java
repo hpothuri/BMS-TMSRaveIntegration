@@ -1,8 +1,8 @@
-package com.bms.tmsint;
+package com.rave.tmsint;
 
 
-import com.bms.tmsint.pojo.DataLine;
-import com.bms.tmsint.pojo.ReturnStatus;
+import com.rave.tmsint.pojo.DataLine;
+import com.rave.tmsint.pojo.ReturnStatus;
 import java.net.URLEncoder;
 import org.apache.commons.codec.binary.Base64;
 
@@ -66,15 +66,15 @@ import oracle.sql.ARRAY;
 import oracle.sql.ArrayDescriptor;
 import oracle.sql.StructDescriptor;
 
-import org.apache.commons.httpclient.Credentials;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
+//import org.apache.commons.httpclient.Credentials;
+//import org.apache.commons.httpclient.HttpClient;
+//import org.apache.commons.httpclient.HttpException;
+//import org.apache.commons.httpclient.HttpStatus;
+//import org.apache.commons.httpclient.UsernamePasswordCredentials;
+//import org.apache.commons.httpclient.auth.AuthScope;
+//import org.apache.commons.httpclient.methods.GetMethod;
+//import org.apache.commons.httpclient.methods.PostMethod;
+//import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.xml.serialize.OutputFormat;
 import org.apache.xml.serialize.XMLSerializer;
@@ -85,12 +85,12 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 
-@WebService
+
 public class MedidataTMSIntegration {
     public MedidataTMSIntegration() {
         super();
     }
-    public static final String FILE_SEPERATOR = System.getProperty("file.separator");
+ /**   public static final String FILE_SEPERATOR = System.getProperty("file.separator");
     private static final String SRC_TYPE_URL = "URL";
     private static final String SRC_TYPE_TXT_FILE = "TEXT";
     private static final String TEXT_FILE_DIRECTORY = "D:\\deploy";
@@ -98,6 +98,9 @@ public class MedidataTMSIntegration {
     private static final String EXTRACT_TEXT_FILE_LOCATION = TEXT_FILE_DIRECTORY + "\\textfile.txt";
     private static final String IMPORT_TEXT_FILE_NAME_PREFIX = "ImportTextFile";
     //     private static final String TEXT_FILE_DIRECTORY ="C:\\Users\\SBG_PC521\\Downloads\\FLAT FILE Integration.txt";
+    
+    private static final String EXTRACT_TYPE_INCREMENTAL = "INCREMENTAL";
+    private static final String EXTRACT_TYPE_CUMULATIVE = "CUMULATIVE";
 
     private void deleteExtractData(Connection conn, CallableStatement cstmt) throws SQLException {
         String sqlQuery = "begin TMSINT_XFER_UTILS.DELETE_EXTRACT_DATA(?,?); end;";
@@ -145,26 +148,42 @@ public class MedidataTMSIntegration {
         List<DataLine> dataLines = new ArrayList<DataLine>();
         //  2.) Determine WHAT DatafileURLS are applicable to the client at hand...
         String sqlQuery =
-            "  SELECT c.client_alias,c.client_desc,d.datafile_url,d.url_user_name," + "              d.url_password," +
-            "              d.study_name" + "       FROM TABLE(tmsint_xfer_utils.query_ora_account())  a," +
-            "            TABLE(tmsint_xfer_utils.query_client())       c," +
-            "            TABLE(tmsint_xfer_utils.query_datafile())     d" + "       WHERE a.client_id = c.client_id" +
-            "         AND c.client_id = d.client_id" + "         AND a.active_flag = 'Y'" +
-            "         AND c.active_flag = 'Y'" + "         AND d.active_flag = 'Y'";
+            "  SELECT j.job_id," + 
+            "           j.datafile_url," + 
+            "           j.url_user_name," + 
+            "           j.url_password," + 
+            "           j.data_extract_type," + 
+            "           to_char(next_incr_extract_ts,'YYYY-MM-DD')||'T'||to_char(next_incr_extract_ts,'HH24:MI:SS') next_incr_extract_ts," + 
+            "           m.dcm_name," + 
+            "           m.vt_name" + 
+            "    FROM TABLE(tmsint_job_queue_utils.process_from_job_queue(pJobStatus => 'SUBMITTED'))   j," + 
+            "       TABLE(tmsint_xfer_utils.query_dict_mapping()) m" + 
+            "  WHERE j.datafile_id = m.datafile_id" + 
+            " ORDER by j.job_priority, j.job_id, j.datafile_id";
 
         stmt = conn.createStatement();
         rs = stmt.executeQuery(sqlQuery);
+        
+        StringBuilder sourceUrl = null;
         while (rs.next()) {
             //  3.) For EACH client datafile record retrieved in the cursor query above, (using your Java magic)
             //       Connect to the DatafileURL using the URLUserName and URLPassword.
             //       Each Line of the HTML data file should be written to the HTLM extract staging table
             //       via the API below:
-            String sourceUrl = rs.getString("datafile_url");
+            
+            String extractType = rs.getString("data_extract_type");
+            String jobId = rs.getString("job_id");
+            
+            sourceUrl = new StringBuilder(rs.getString("datafile_url") + "/" + rs.getString("dcm_name"));
+            
+            if (EXTRACT_TYPE_INCREMENTAL.equals(extractType) && rs.getString("next_incr_extract_ts") != null)
+                sourceUrl.append("?start=" + rs.getString("next_incr_extract_ts"));
+
             String userName = rs.getString("url_user_name");
             String password = rs.getString("url_password");
 
             if (sourceUrl != null && userName != null && password != null)
-                dataLines.addAll(getClinicalDataFromMedidata(sourceUrl, userName, password));
+                dataLines.addAll(getClinicalDataFromMedidata(jobId,sourceUrl.toString(), userName, password));
         }
         return dataLines;
     }
@@ -177,7 +196,8 @@ public class MedidataTMSIntegration {
             for (int i = 0; i < dataLines.size(); i++) {
                 dataLineSqlRecList[i] =
                         conn.createStruct("TMSINT_XFER_HTML_WS_OBJR", new Object[] { dataLines.get(i).getUrl(),
-                                                                                     dataLines.get(i).getText() });
+                                                                                     dataLines.get(i).getText(),
+                                                                                     dataLines.get(i).getJobId() });
             }
 
             System.out.println("Number of lines to be inserted : " + dataLineSqlRecList.length);
@@ -567,7 +587,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
     }
 
 
-    private List<DataLine> getClinicalDataFromMedidata(String sourceUrl, String userName,
+    private List<DataLine> getClinicalDataFromMedidata(String jobId, String sourceUrl, String userName,
                                                        String password) throws MalformedURLException, IOException,
                                                                                NoSuchAlgorithmException,
                                                                                KeyManagementException {
@@ -612,7 +632,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
             for (String text : textLines) {
                 // ignore xml declaration lines
                 if (!text.startsWith("<?xml"))
-                    dataLines.add(new DataLine(sourceUrl, text));
+                    dataLines.add(new DataLine(sourceUrl, text,jobId));
             }
         }
         //        }
@@ -764,9 +784,11 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
         HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
     }
 
-    @WebMethod(exclude = true)
+   
     public static void main(String[] args) {
         MedidataTMSIntegration ex = new MedidataTMSIntegration();
+        System.out.println(ex.extractClinicalDataFromURL());
+        
      //   System.out.println(ex.importClinicalDataToURL());
         
         
@@ -790,18 +812,18 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
         "</ClinicalData>" + 
         "</ODM>";
 
-                try {
-                    ex.postClinicalDataToMedidata("https://pharmanet.mdsol.com/RaveWebServices/webservice.aspx?PostODMClinicalData",
-                                                  postReqBody, "DCaruso", "QuanYin2");
-                } catch (HttpException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (KeyManagementException e) {
-            e.printStackTrace();
-        }
+//                try {
+//                    ex.postClinicalDataToMedidata("https://pharmanet.mdsol.com/RaveWebServices/webservice.aspx?PostODMClinicalData",
+//                                                  postReqBody, "DCaruso", "QuanYin2");
+//                } catch (HttpException e) {
+//                    e.printStackTrace();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                } catch (NoSuchAlgorithmException e) {
+//            e.printStackTrace();
+//        } catch (KeyManagementException e) {
+//            e.printStackTrace();
+//        }
 
         //        try {
 //            System.out.println(ex.postClinicalDataToText(postReqBody,"TestImportToText.txt"));
@@ -809,4 +831,6 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
 //        } catch (IOException e) {
 //        }
     }
+
+**/
 }

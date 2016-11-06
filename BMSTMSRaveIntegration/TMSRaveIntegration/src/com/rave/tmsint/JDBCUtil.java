@@ -1,4 +1,4 @@
-package com.bms.tmsint;
+package com.rave.tmsint;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

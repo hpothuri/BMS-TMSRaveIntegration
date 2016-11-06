@@ -1,4 +1,4 @@
-package com.bms.tmsint.pojo;
+package com.rave.tmsint.pojo;
 
 public class ReturnStatus {
     public ReturnStatus() {
@@ -9,7 +9,7 @@ public class ReturnStatus {
     public static final String FAIL = "FAIL";
     
     private String status;
-    private String errorCode;
+    private String responseBody;  
     private String errorMessage;
 
     public void setStatus(String status) {
@@ -20,19 +20,19 @@ public class ReturnStatus {
         return status;
     }
 
-    public void setErrorCode(String errorCode) {
-        this.errorCode = errorCode;
-    }
-
-    public String getErrorCode() {
-        return errorCode;
-    }
-
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
     }
 
     public String getErrorMessage() {
         return errorMessage;
+    }
+
+    public void setResponseBody(String responseBody) {
+        this.responseBody = responseBody;
+    }
+
+    public String getResponseBody() {
+        return responseBody;
     }
 }

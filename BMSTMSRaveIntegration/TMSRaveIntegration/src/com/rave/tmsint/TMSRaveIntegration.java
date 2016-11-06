@@ -1,8 +1,8 @@
-package com.bms.tmsint;
+package com.rave.tmsint;
 
-import com.bms.tmsint.pojo.DataLine;
-import com.bms.tmsint.pojo.ReturnStatus;
-
+import com.rave.tmsint.pojo.DataLine;
+import com.rave.tmsint.pojo.ReturnStatus;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -270,7 +270,7 @@ public class TMSRaveIntegration {
             } catch (Exception e) {
                 returnMsg =
                         "Error while obtaining the database connection. Please check if the data source is active.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
@@ -280,7 +280,7 @@ public class TMSRaveIntegration {
             } catch (Exception e) {
                 returnMsg =
                         "Error while clearing the processed data. Please check the database logs for more details.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
@@ -304,29 +304,30 @@ public class TMSRaveIntegration {
                         insertExtractedDataIntoTMS(conn, cstmt, dataLines);
 
                         //UPDATE JOB STATUS TO EXTRACTED
-//                        updateJobStatus(conn, jobId, rs.getString("client_alias"), JOB_STATUS_EXTRACTED, null);
+                        updateJobStatus(conn, jobId, rs.getString("client_alias"), JOB_STATUS_EXTRACTED, null);
 
                     } catch (Exception e) {
                         e.printStackTrace();
-                        returnMsg = "Error while processing job " + jobId + ".The error message is " + e.getMessage();
+                        
+                        returnMsg = "Error while processing job " + jobId + ".The error message is " + ExceptionUtils.getStackTrace(e);
 
                         //UPDATE JOB STATUS TO ERROR_EXT
-//                        try {
-//                            updateJobStatus(conn, jobId, rs.getString("client_alias"), JOB_STATUS_ERROR,
-//                                            e.getMessage());
-//                        } catch (Exception ex) {
-//                            e.printStackTrace();
-//                            returnMsg =
-//                                    returnMsg + "Error while setting job status to ERROR_EXT for job id" + jobId + ".Error message is " +
-//                                    e.getMessage();
-//                            return returnMsg;
-//                        }
+                        try {
+                            updateJobStatus(conn, jobId, rs.getString("client_alias"), JOB_STATUS_ERROR,
+                                            ExceptionUtils.getStackTrace(e));
+                        } catch (Exception ex) {
+                            e.printStackTrace();
+                            returnMsg =
+                                    returnMsg + "Error while setting job status to ERROR_EXT for job id" + jobId + ".Error message is " +
+                                    ExceptionUtils.getStackTrace(e);
+                            return returnMsg;
                     }
+                }
                 }
 
             } catch (Exception e) {
                 returnMsg = "Error while fetching the jobs in submitted state.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
@@ -335,7 +336,7 @@ public class TMSRaveIntegration {
             } catch (Exception e) {
                 returnMsg =
                         "Error while analyzing the transfer tables. Please check the database logs for more details.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
@@ -457,7 +458,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
             } catch (Exception e) {
                 returnMsg =
                         "Error while obtaining the database connection. Please check if the database is running.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
@@ -467,7 +468,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
 
         } catch (Exception e) {
             returnMsg = "Error while processing data in TMS for integration with Medidata.\n" +
-                    e.getMessage();
+                    ExceptionUtils.getStackTrace(e);
             e.printStackTrace();
         } finally {
             JDBCUtil.closeStatement(cstmt);
@@ -516,7 +517,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
             } catch (Exception e) {
                 returnMsg =
                         "Error while obtaining the database connection. Please check if the data source is active.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
@@ -545,20 +546,20 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
                     updatePostStatusToTMS(conn, cstmt, returnSqlRecList);
                 } catch (Exception e) {
                     returnMsg = "Error while updating the post status to TMS.\n" +
-                            e.getMessage();
+                            ExceptionUtils.getStackTrace(e);
                     return returnMsg;
                 }
 
             } catch (Exception e) {
                 returnMsg =
                         "Error while fetching the records to be imported to Medidata. Please check if the data source is active and function TMSINT_XFER_UTILS.SELECT_IMPORT_DATA is accessible.\n" +
-                        e.getMessage();
+                        ExceptionUtils.getStackTrace(e);
                 return returnMsg;
             }
 
         } catch (Exception e) {
             returnMsg = "Error while importing data from TMS to Medidata.\n" +
-                    e.getMessage();
+                    ExceptionUtils.getStackTrace(e);
             e.printStackTrace();
         } finally {
             JDBCUtil.closeStatement(cstmt);
@@ -791,26 +792,26 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
                 }
             }
         } catch (NoSuchAlgorithmException noSuchAlgorithmException) {
-            System.out.println(noSuchAlgorithmException.getMessage());
+            System.out.println(ExceptionUtils.getStackTrace(noSuchAlgorithmException));
         } catch (KeyStoreException keyStoreException) {
-            System.out.println(keyStoreException.getMessage());
+            System.out.println(ExceptionUtils.getStackTrace(keyStoreException));
         } catch (KeyManagementException keyManagementException) {
-            System.out.println(keyManagementException.getMessage());
+            System.out.println(ExceptionUtils.getStackTrace(keyManagementException));
         } catch (IOException iOException) {
-            System.out.println(iOException.getMessage());
+            System.out.println(ExceptionUtils.getStackTrace(iOException));
         } finally {
             if (closeableHttpResponse != null) {
                 try {
                     closeableHttpResponse.close();
                 } catch (IOException iOException) {
-                    System.out.println(iOException.getMessage());
+                    System.out.println(ExceptionUtils.getStackTrace(iOException));
                 }
             }
             if (closeableHttpClient != null) {
                 try {
                     closeableHttpClient.close();
                 } catch (IOException iOException) {
-                    System.out.println(iOException.getMessage());
+                    System.out.println(ExceptionUtils.getStackTrace(iOException));
                 }
             }
         }
@@ -869,7 +870,7 @@ DriverManager.getConnection("jdbc:oracle:thin:TMSINT_XFER_INV/TMSINT_XFER_INV@//
             status.setStatus(ReturnStatus.SUCCESS);
         else {
             status.setStatus(ReturnStatus.FAIL);
-            status.setErrorCode(con.getResponseCode() + "");
+            status.setErrorMessage(con.getResponseCode() + "");
             //            status.setErrorMessage(HttpStatus.getStatusText(con.getResponseCode()) + "-" + con.getInputStream());
         }
         return status;

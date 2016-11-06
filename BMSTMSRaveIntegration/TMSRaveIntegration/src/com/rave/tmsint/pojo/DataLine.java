@@ -1,4 +1,4 @@
-package com.bms.tmsint.pojo;
+package com.rave.tmsint.pojo;
 
 public class DataLine {
     public DataLine() {
