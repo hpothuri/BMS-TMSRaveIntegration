@@ -20,6 +20,7 @@
       <string v="oracle.jdeveloper.model.PathsConfiguration/ApplicationLevelMavenPOMContentSet"/>
    </list>
    <list n="listOfChildren">
+      <hash><url n="URL" path="DataModel/DataModel.jpr"/></hash>
       <hash><url n="URL" path="TMSRaveIntegration/TMSRaveIntegration.jpr"/></hash>
    </list>
 </jws:workspace>
