@@ -21,7 +21,7 @@
            (fake_job_id,                    -- JOB_ID
             'BMS',             -- CLIENT_ALIAS
             'TMS CODING STUDY 1(DEV)',               -- STUDY_NAME
-            'https://bmsdev.mdsol.com/RaveWebServices/studies/TMS CODING STUDY 2(DEV)/datasets/regular',             -- URL
+            'https://bmsdev.mdsol.com/RaveWebServices/studies/TMS CODING STUDY 1(DEV)/datasets/regular',             -- URL
             'DCaruso',            -- URL_USERNAME
             'QuanYin1',             -- URL_PASSWORD
             'CUMULATIVE',        -- EXTRACT_TYPE
@@ -37,7 +37,7 @@
              pDCMTab(pDCMTab.LAST) := tmsint_java_dcm_objr
                (fake_job_id,                  -- JOB_ID
                 'TMS CODING STUDY 1(DEV)',             -- STUDY_NAME
-                'PREMED',                 -- DCM_NAME
+                'CONMED',                 -- DCM_NAME
                 'EXTRT_PREMED');                 -- VT_NAME
 --         END LOOP;
 --      END LOOP;
@@ -76,7 +76,7 @@
              DBMS_OUTPUT.PUT_LINE('Number of lines extracted : ' || pExtTab.COUNT);
          else         
              RAISE_APPLICATION_ERROR(-20101,'%%% Error Returned from Java: '||java_rtn);
-         END IF;
+         END IF;         
       EXCEPTION WHEN OTHERS THEN
           RAISE_APPLICATION_ERROR(-20101,'%%% Unhandled Error Running Java '||SQLERRM);
       END;

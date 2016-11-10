@@ -70,21 +70,21 @@
 --    **********************************
 --    *** Display Array Content...   ***
 --    **********************************
---      IF (pJobTab.COUNT > 0) THEN
---          FOR i IN pJobTab.FIRST .. pJobTab.LAST LOOP
---              DBMS_OUTPUT.PUT_LINE(CHR(9));
---              DBMS_OUTPUT.PUT_LINE('JobID:       '||pJobTab(i).job_id);
---              DBMS_OUTPUT.PUT_LINE('Study:       '||pJobTab(i).study_name);
---              DBMS_OUTPUT.PUT_LINE('URL:         '||SUBSTR(pJobTab(i).url,1,50)||'[...]');
---              DBMS_OUTPUT.PUT_LINE('Credentials: '||pJobTab(i).url_username||'/'||pJobTab(i).url_password);
---              DBMS_OUTPUT.PUT_LINE(CHR(9));
---              FOR j IN pDCMTab.FIRST .. pDCMTab.LAST LOOP
---                  IF (pDCMTab(j).study_name = pJobTab(i).study_name) THEN
---                      DBMS_OUTPUT.PUT_LINE(CHR(9)||'DCM => '||pDCMTab(j).dcm_name||'.'||pDCMTab(j).vt_name);
---                  END IF;
---              END LOOP;
---          END LOOP;
---      END IF;
+      IF (pJobTab.COUNT > 0) THEN
+          FOR i IN pJobTab.FIRST .. pJobTab.LAST LOOP
+              DBMS_OUTPUT.PUT_LINE(CHR(9));
+              DBMS_OUTPUT.PUT_LINE('JobID:       '||pJobTab(i).job_id);
+              DBMS_OUTPUT.PUT_LINE('Study:       '||pJobTab(i).study_name);
+              DBMS_OUTPUT.PUT_LINE('URL:         '||pJobTab(i).url);
+              DBMS_OUTPUT.PUT_LINE('Credentials: '||pJobTab(i).url_username||'/'||pJobTab(i).url_password);
+              DBMS_OUTPUT.PUT_LINE(CHR(9));
+              FOR j IN pDCMTab.FIRST .. pDCMTab.LAST LOOP
+                  IF (pDCMTab(j).study_name = pJobTab(i).study_name) THEN
+                      DBMS_OUTPUT.PUT_LINE(CHR(9)||'DCM => '||pDCMTab(j).dcm_name||'.'||pDCMTab(j).vt_name);
+                  END IF;
+              END LOOP;
+          END LOOP;
+      END IF;
  
 --    ******************************************************************
 --    *** Call Java extractClinicalDataFromURL for the Current JobID ***
