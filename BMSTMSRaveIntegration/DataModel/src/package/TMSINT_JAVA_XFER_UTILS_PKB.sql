@@ -1,5 +1,4 @@
-create or replace
-PACKAGE BODY tmsint_java_xfer_utils
+create or replace PACKAGE BODY tmsint_java_xfer_utils
    AS
 
 --    **************************************************************************
@@ -7,11 +6,12 @@ PACKAGE BODY tmsint_java_xfer_utils
 --    *** Procedure:    PUT_LOG                                              ***
 --    ***                                                                    ***
 --    **************************************************************************
- PROCEDURE PUT_LOG (P_PROC IN VARCHAR2, P_MESSAGE IN VARCHAR2)
+      PROCEDURE put_log(p_proc    IN VARCHAR2,
+                        p_message IN VARCHAR2)
        IS
        BEGIN
-         dbms_output.put_line(P_PROC || '-' || P_MESSAGE );
-       END PUT_LOG;
+          DBMS_OUTPUT.PUT_LINE(p_proc||'-'||p_message);
+       END put_log;
 
 --    **************************************************************************
 --    ***                                                                    ***
@@ -34,119 +34,115 @@ PACKAGE BODY tmsint_java_xfer_utils
 --    ***              used for Later TMS Integration Processing.            ***
 --    ***                                                                    ***
 --    **************************************************************************
- PROCEDURE invoke_rest_service(
-    p_url           IN VARCHAR2,
-    p_input_payload IN CLOB,
-    p_http_method   IN VARCHAR2,
-    p_username      IN VARCHAR2,
-    p_password      IN VARCHAR2,
-    p_response      OUT CLOB,
-    p_status_code   OUT VARCHAR2,
-    p_error_message OUT VARCHAR2
-  )
-IS
-  l_rest_endpoint   VARCHAR2 (1000);
-  l_wallet          VARCHAR2 (100) := 'file:E:\oracle\product\12.1.0\dbhome_1\medidata_wallet';
-  l_wallet_pwd      VARCHAR2 (100) := 'orawallet@123';
-  L_HTTP_REQUEST UTL_HTTP.REQ;
-  L_HTTP_RESPONSE UTL_HTTP.RESP;
-  L_REQ_LENGTH BINARY_INTEGER;
-  BUFFER VARCHAR2 (2000);
-  AMOUNT PLS_INTEGER := 2000;
-  OFFSET PLS_INTEGER := 1;
-  L_TEXT VARCHAR2 (32767);
-BEGIN
+      PROCEDURE invoke_rest_service
+          (p_url             IN VARCHAR2,
+           p_input_payload   IN CLOB,
+           p_http_method     IN VARCHAR2,
+           p_username        IN VARCHAR2,
+           p_password        IN VARCHAR2,
+           p_response        OUT CLOB,
+           p_status_code     OUT VARCHAR2,
+           p_error_message   OUT VARCHAR2)
+     IS
+         l_rest_endpoint    VARCHAR2 (1000);
+         l_wallet           VARCHAR2 (100) := 'file:E:\oracle\product\12.1.0\dbhome_1\medidata_wallet';
+         l_wallet_pwd       VARCHAR2 (100) := 'orawallet@123';
+         l_req_length       BINARY_INTEGER;
+         buffer             VARCHAR2(2000);
+         amount             PLS_INTEGER := 2000;
+         offset             PLS_INTEGER := 1;
+         l_text             VARCHAR2(32767);
+         l_http_request     UTL_HTTP.REQ;
+         l_http_response    UTL_HTTP.RESP;
+     BEGIN
+         put_log('INVOKE_REST_SERVICE', 'p_url =' || p_url);
+         put_log('INVOKE_REST_SERVICE', 'p_http_method =' || P_HTTP_METHOD);
+         put_log('INVOKE_REST_SERVICE', 'p_username=' || p_username);
+         put_log('INVOKE_REST_SERVICE', 'p_password=' || p_password);
+         put_log('INVOKE_REST_SERVICE', 'l_wallet=' || l_wallet);
+         put_log('INVOKE_REST_SERVICE', 'l_wallet_pwd=' || l_wallet_pwd);
 
-         PUT_LOG ('INVOKE_REST_SERVICE', 'p_url =' || p_url);
-         PUT_LOG ('INVOKE_REST_SERVICE', 'p_http_method =' || P_HTTP_METHOD);
-         PUT_LOG ('INVOKE_REST_SERVICE', 'p_username=' || p_username);
-         PUT_LOG ('INVOKE_REST_SERVICE', 'p_password=' || p_password);
-         PUT_LOG ('INVOKE_REST_SERVICE', 'l_wallet=' || l_wallet);
-         PUT_LOG ('INVOKE_REST_SERVICE', 'l_wallet_pwd=' || l_wallet_pwd);
-         
-         IF l_wallet IS NULL
-         THEN
-            RAISE_APPLICATION_ERROR (-20002, 'SSL Wallet is not setup. Please contact your administrator.');
-         END IF;   
- 
-           IF l_wallet_pwd IS NULL
-         THEN
-            RAISE_APPLICATION_ERROR (-20003,
-                                     'SSL Wallet Password is not setup. Please contact your administrator.');
+         IF (l_wallet IS NULL) THEN
+             RAISE_APPLICATION_ERROR(-20002,'SSL Wallet is not setup. '||
+               'Please contact your administrator.');
          END IF;
-         
-                 IF p_url IS NULL
-         THEN
-            RAISE_APPLICATION_ERROR (-20004,
-                                     'Rest Service Url can not be null.');
-         END IF;
-  
-           IF p_username IS NULL OR p_PASSWORD is null
-         THEN
-            RAISE_APPLICATION_ERROR (-20005,
-                                     'Credentials can not be null.');
-         END IF;
-      
-    -- set the wallet path and password
-     UTL_HTTP.SET_WALLET(l_wallet, l_wallet_pwd);
-     
-     -- encode the url
-     l_rest_endpoint := utl_url.escape(p_url);
-     PUT_LOG ('INVOKE_REST_SERVICE', 'Encoded l_rest_endpoint =' || l_rest_endpoint);
-     
-       l_http_request := UTL_HTTP.begin_request (l_rest_endpoint
-                                          , P_HTTP_METHOD
-                                          , 'HTTP/1.1');
-        
-      -- set credentials
-      UTL_HTTP.SET_AUTHENTICATION(l_http_request, p_username, p_password);            
-     
-     DBMS_LOB.CREATETEMPORARY (p_response, true);
-     
-    BEGIN
-          IF (P_HTTP_METHOD = 'GET') THEN
-           PUT_LOG ('INVOKE_REST_SERVICE', 'Processing GET request');
-          l_http_response := UTL_HTTP.get_response(l_http_request);         
-           PUT_LOG ('INVOKE_REST_SERVICE', 'Status code : ' || l_http_response.status_code);
-          if(l_http_response.status_code = UTL_HTTP.HTTP_OK) then         
-              BEGIN
-                  LOOP
-                     UTL_HTTP.READ_TEXT (L_HTTP_RESPONSE, L_TEXT, 32766);
-                     PUT_LOG('INVOKE_REST_SERVICE','Chunk of 32766 chars : ' || L_TEXT);
-                     DBMS_LOB.WRITEAPPEND (p_response, LENGTH (L_TEXT), L_TEXT);
-                  END LOOP;
-               EXCEPTION
-                  WHEN UTL_HTTP.END_OF_BODY
-                  THEN                     
-                     UTL_HTTP.END_RESPONSE (L_HTTP_RESPONSE);
-                  WHEN OTHERS
-                  THEN
-                     PUT_LOG('INVOKE_REST_SERVICE',SQLERRM);
-               END;    
-               PUT_LOG('INVOKE_REST_SERVICE','Response length : ' || DBMS_LOB.getlength(p_response));
-                p_status_code := 'S';
-          else
-                p_status_code := 'E';
-          end if;         
-           
-               
-          ELSIF (P_HTTP_METHOD = 'POST') THEN
-            PUT_LOG ('INVOKE_REST_SERVICE', 'Processing POST request');
-            
-          ELSE 
-           RAISE_APPLICATION_ERROR (-20006,
-                                           'Invalid http method. Only GET and POST are supported.');
-          end if;   
-    
-     EXCEPTION
-            WHEN OTHERS
-            THEN               
-               p_error_message := UTL_HTTP.GET_DETAILED_SQLCODE || UTL_HTTP.GET_DETAILED_SQLERRM ;
-     END;
-     PUT_LOG('INVOKE_REST_SERVICE','Status : ' ||p_status_code );
-     
-END INVOKE_REST_SERVICE;
 
+         IF (l_wallet_pwd IS NULL) THEN
+             RAISE_APPLICATION_ERROR (-20003,'SSL Wallet Password is not setup. '||
+               'Please contact your administrator.');
+         END IF;
+
+         IF (p_url IS NULL) THEN
+            RAISE_APPLICATION_ERROR (-20004,'Rest Service Url can not be null.');
+         END IF;
+
+         IF (p_username IS NULL) OR (p_password IS NULL) THEN
+            RAISE_APPLICATION_ERROR (-20005,'Credentials can not be null.');
+         END IF;
+
+--       ****************************************
+--       *** Set the Wallet Path and Password ***
+--       ****************************************
+         UTL_HTTP.SET_WALLET(l_wallet, l_wallet_pwd);
+
+--       **********************
+--       *** Encode the URL ***
+--       **********************
+         l_rest_endpoint := utl_url.escape(p_url);
+         put_log('INVOKE_REST_SERVICE', 'Encoded l_rest_endpoint =' ||l_rest_endpoint);
+         l_http_request := UTL_HTTP.BEGIN_REQUEST(l_rest_endpoint,p_http_method,'HTTP/1.1');
+
+--       ***********************
+--       *** Set Credentials ***
+--       ***********************
+         UTL_HTTP.SET_AUTHENTICATION(l_http_request, p_username, p_password);
+         DBMS_LOB.CREATETEMPORARY (p_response, true);
+
+         BEGIN
+            IF (P_HTTP_METHOD = 'GET') THEN
+                put_log ('INVOKE_REST_SERVICE', 'Processing GET request');
+                l_http_response := UTL_HTTP.get_response(l_http_request);
+                put_log ('INVOKE_REST_SERVICE', 'Status code : ' || l_http_response.status_code);
+                IF (l_http_response.status_code = UTL_HTTP.HTTP_OK) then
+                    BEGIN
+                        LOOP
+                           UTL_HTTP.READ_TEXT (L_HTTP_RESPONSE, L_TEXT, 32766);
+                           put_log('INVOKE_REST_SERVICE','Chunk of 32766 chars : ' || L_TEXT);
+                           DBMS_LOB.WRITEAPPEND (p_response, LENGTH (L_TEXT), L_TEXT);
+                        END LOOP;
+                    EXCEPTION
+                       WHEN UTL_HTTP.END_OF_BODY THEN
+                          UTL_HTTP.END_RESPONSE (L_HTTP_RESPONSE);
+                       WHEN OTHERS THEN
+                          put_log('INVOKE_REST_SERVICE',SQLERRM);
+                    END;
+                    put_log('INVOKE_REST_SERVICE','Response length : ' ||
+                        DBMS_LOB.getlength(p_response));
+                    p_status_code := 'S';
+               ELSE
+                    p_status_code := 'E';
+               END IF;
+
+            ELSIF (P_HTTP_METHOD = 'POST') THEN
+                put_log('INVOKE_REST_SERVICE', 'Processing POST request');
+
+            ELSE
+                RAISE_APPLICATION_ERROR (-20006,'Invalid http method. '||
+                   'Only GET and POST are supported.');
+            END IF;
+         EXCEPTION WHEN OTHERS THEN
+            p_error_message := UTL_HTTP.GET_DETAILED_SQLCODE||UTL_HTTP.GET_DETAILED_SQLERRM ;
+         END;
+         put_log('INVOKE_REST_SERVICE','Status : ' ||p_status_code );
+         UTL_HTTP.END_REQUEST(l_http_request);
+--   *************************
+--   *** Exception Handler ***
+--   *************************
+     EXCEPTION WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20101,'%%% Unhandled Error in Procedure '||
+            'INVOKE_REST_SERVICE');
+
+     END invoke_rest_service;
 
 --    **************************************************************************
 --    ***                                                                    ***
@@ -251,13 +247,12 @@ END INVOKE_REST_SERVICE;
          rtn            VARCHAR2(4000)      := NULL;
          errm           VARCHAR2(32767)     := NULL;
          source_url     VARCHAR2(1000)      := NULL;
-         l_status_code  VARCHAR2(1)      := NULL;
+         l_status_code  VARCHAR2(1)         := NULL;
+         l_xml_line     VARCHAR2(4000)      := NULL;
          l_response     CLOB;
-         l_xmlresponse  xmltype ;
-         l_str long;
-         l_xml_line  VARCHAR2(4000)      := NULL;
+         l_xmlresponse  XMLTYPE;
+         l_str          LONG;
       BEGIN
-
 --       ***********************************************
 --       *** Verify pJobTab and pDCMTab Contain Data ***
 --       ***********************************************
@@ -301,56 +296,60 @@ END INVOKE_REST_SERVICE;
 --                   *** Call Java Processing getClinicalDataFromMedidata  ***
 --                   *** for the Current Study DCM                         ***
 --                   *********************************************************
-                      PUT_LOG('extractClinicalDataFromURL','Calling invoke_rest_service');
-                      invoke_rest_service(
-                          p_url           =>  source_url,
-                          p_input_payload => null ,
-                          p_http_method   => 'GET' ,
-                          p_username      =>  pJobTab(i).url_username,
-                          p_password      =>  pJobTab(i).url_password,
-                          p_response      =>  l_response,
-                          p_status_code   => l_status_code,
-                          p_error_message => errm
-                        );
-                        
-                        if(l_status_code = 'S') then
-                           PUT_LOG('extractClinicalDataFromURL','Rest service call successful' );
-                            PUT_LOG('extractClinicalDataFromURL','Response length before cleaning: ' || dbms_lob.getlength(l_response));
-                           l_response := dbms_lob.substr(l_response,dbms_lob.getlength(l_response)-dbms_lob.instr(l_response,'<')+1,dbms_lob.instr(l_response,'<'));
-                          
-                          PUT_LOG('extractClinicalDataFromURL','Response length after cleaning: ' || dbms_lob.getlength(l_response));
-                           l_xmlresponse := XMLTYPE.CREATEXML(l_response);
---                         **************************************************
---                         *** Copy the Contents of XMLResponseTAB to the ***
---                         *** Output Parameter pExtTab to be Returned to ***
---                         *** the Caller and then Initialize the Array   ***
---                         *** for the Next Call to Obtain DCM Data       ***
---                         *** Within the Study                           ***
---                         **************************************************
-                           l_str := l_xmlresponse.extract('/*').getstringval();
-                           loop
-                              exit when l_str is null;
-                              put_log('extractClinicalDataFromURL', 'Response line - ' || (substr (l_str, 1, instr (l_str, chr(10)) - 1)));
-                              l_xml_line := (substr (l_str, 1, instr (l_str, chr(10)) - 1));                              
+                     PUT_LOG('extractClinicalDataFromURL','Calling invoke_rest_service');
+                     DBMS_LOB.CREATETEMPORARY (l_response, true);                     
+                     tmsint_java_xfer_utils.invoke_rest_service
+                        (p_url           =>  source_url,
+                         p_input_payload =>  NULL,
+                         p_http_method   => 'GET' ,
+                         p_username      =>  pJobTab(i).url_username,
+                         p_password      =>  pJobTab(i).url_password,
+                         p_response      =>  l_response,
+                         p_status_code   =>  l_status_code,
+                         p_error_message =>  errm);
+
+                      IF (l_status_code = 'S') THEN
+                          put_log('extractClinicalDataFromURL','Rest service call successful' );
+                          put_log('extractClinicalDataFromURL','Response length before cleaning: '||
+                              DBMS_LOB.GETLENGTH(l_response));
+                          l_response := DBMS_LOB.SUBSTR(l_response,
+                              DBMS_LOB.GETLENGTH(l_response) -
+                              DBMS_LOB.INSTR(l_response,'<')+1,
+                              DBMS_LOB.INSTR(l_response,'<'));
+                          put_log('extractClinicalDataFromURL','Response length after cleaning: ' ||
+                              DBMS_LOB.GETLENGTH(l_response));
+                          l_xmlresponse := XMLTYPE.CREATEXML(l_response);
+
+--                        **************************************************************************
+--                        *** Copy the Contents of XMLResponseTAB to the Output Parameter pExtTab ***
+--                        *** to be Returned to the Caller and then Initialize the Array for the  ***
+--                        *** Next Call to Obtain DCM Data Within the Study                       ***
+--                        ***************************************************************************
+                          l_str := l_xmlresponse.extract('/*').getstringval();
+                          LOOP
+                              EXIT WHEN l_str IS NULL;
+                              put_log('extractClinicalDataFromURL',
+                                  'Response line - '||(SUBSTR(l_str,1,INSTR(l_str,CHR(10))-1)));
+                              l_xml_line := (SUBSTR(l_str,1,INSTR(l_str,CHR(10))-1));
                               pExtTab.EXTEND;
                               pExtTab(pExtTab.LAST) := tmsint_xfer_html_ws_objr
                                 (pJobTab(i).url,                -- FILE_NAME
                                  l_xml_line,                    -- HTML_TEXT
                                  pJobTab(i).job_id);            -- JOB_ID
-                              l_str := substr (l_str, instr (l_str, chr(10)) + 1);
-                           end loop;
-                              XMLResponseTAB := tmsint_xfer_html_ws_objt();
-                         else
-                             RETURN errm;   -- Abort and Return to Caller
-                         END  IF;
-                 END IF;
+                              l_str := SUBSTR(l_str,INSTR(l_str,CHR(10))+1);
+                         END LOOP;
+                         XMLResponseTAB := tmsint_xfer_html_ws_objt();
+                      ELSE
+                         RETURN errm;   -- Abort and Return to Caller
+                      END IF;
+                 END IF; -- Study DCM
              END LOOP;  -- End DCM
          END LOOP;  -- End Job Study
 
 --       ************************************
 --       *** Return Extracted Data Caller ***
 --       ************************************
-         dbms_lob.freetemporary(l_response);
+         DBMS_LOB.FREETEMPORARY(l_response);
          RETURN NULL;  -- No Errors Occurred
 
 --    *************************
@@ -359,7 +358,6 @@ END INVOKE_REST_SERVICE;
       EXCEPTION WHEN OTHERS THEN
          errm := '%%% Unhandled Error in Function extractClinicalDataFromURL '||
              SQLERRM;
-         dbms_lob.freetemporary(l_response);
          RETURN errm;
 
       END extractClinicalDataFromURL;
@@ -442,13 +440,13 @@ END INVOKE_REST_SERVICE;
 --                   *****************************************************
                      IF (out_status_code = 'SUCCESS') then
                          pImpTab(j).process_flag        := 'Y';
-                         pimptab(j).process_ts          :=  SYSDATE;
-                         pimptab(j).process_status_code :=  NULL;
-                         pimptab(j).process_error_msg   :=  SUBSTR(out_response_body,1,4000);
+                         pImpTab(j).process_ts          :=  SYSDATE;
+                         pImpTab(j).process_status_code :=  NULL;
+                         pImpTab(j).process_error_msg   :=  SUBSTR(out_response_body,1,4000);
                      ELSE
                          status_rtn := SUBSTR(errm,1,4000);
-                         pimptab(j).process_flag        := 'E';
-                         pimptab(j).process_ts          :=  SYSDATE;
+                         pImpTab(j).process_flag        := 'E';
+                         pImpTab(j).process_ts          :=  SYSDATE;
                          pimptab(j).process_status_code :=  SUBSTR(errm,1,1000);
                          pimptab(j).process_error_msg   :=  SUBSTR(out_response_body,1,4000);
                      END IF;
@@ -476,5 +474,4 @@ END INVOKE_REST_SERVICE;
       END importClinicalDataFromURL;
 
 
-   
    END tmsint_java_xfer_utils;

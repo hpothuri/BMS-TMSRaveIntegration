@@ -1,20 +1,23 @@
-create or replace
-PACKAGE tmsint_java_xfer_utils AUTHID DEFINER
+create or replace PACKAGE tmsint_java_xfer_utils AUTHID DEFINER
    AS
-   
-   XMLResponseTAB tmsint_xfer_html_ws_objt;
-   
-   procedure invoke_rest_service(
-    p_url           IN VARCHAR2,
-    p_input_payload IN CLOB,
-    p_http_method   IN VARCHAR2,
-    p_username      IN VARCHAR2,
-    p_password      IN VARCHAR2,
-    p_response      OUT CLOB,
-    p_status_code   OUT VARCHAR2,
-    p_error_message OUT VARCHAR2
-  );
-  
+--    ************************************
+--    *** Global Variable Declaration  ***
+--    ************************************
+      xmlresponseTAB  tmsint_xfer_html_ws_objt := tmsint_xfer_html_ws_objt();
+
+--    **********************************
+--    *** Web-Service Call Procedure ***
+--    **********************************
+      PROCEDURE invoke_rest_service
+        (p_url              IN VARCHAR2,
+         p_input_payload    IN CLOB,
+         p_http_method      IN VARCHAR2,
+         p_username         IN VARCHAR2,
+         p_password         IN VARCHAR2,
+         p_response         OUT CLOB,
+         p_status_code      OUT VARCHAR2,
+         p_error_message    OUT VARCHAR2);
+
 --    **********************************************
 --    *** Extract Data from Client Source System ***
 --    **********************************************
