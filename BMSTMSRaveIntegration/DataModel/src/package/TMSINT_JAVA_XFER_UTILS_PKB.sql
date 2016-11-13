@@ -1,4 +1,5 @@
-create or replace PACKAGE BODY tmsint_java_xfer_utils
+create or replace
+PACKAGE BODY tmsint_java_xfer_utils
    AS
 
 --    **************************************************************************
@@ -45,8 +46,8 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
            p_error_message   OUT VARCHAR2)
      IS
          l_rest_endpoint    VARCHAR2 (1000);
-         l_wallet           VARCHAR2 (100) := 'file:E:\oracle\product\12.1.0\dbhome_1\medidata_wallet';
-         l_wallet_pwd       VARCHAR2 (100) := 'orawallet@123';
+         l_wallet           VARCHAR2 (100) := NULL;
+         l_wallet_pwd       VARCHAR2 (100) := 'orawallet@123';  --Wrap!
          l_req_length       BINARY_INTEGER;
          buffer             VARCHAR2(2000);
          amount             PLS_INTEGER := 2000;
@@ -55,6 +56,23 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
          l_http_request     UTL_HTTP.REQ;
          l_http_response    UTL_HTTP.RESP;
      BEGIN
+--       ************************************************
+--       *** Get Value of "JAVA_WALLET_PATH" Property ***
+--       ************************************************
+         BEGIN
+            SELECT property_value INTO l_wallet
+            FROM tmsint_adm_properties
+            WHERE property_name = 'JAVA_WALLET_PATH';
+         EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+               RAISE_APPLICATION_ERROR(-20101,'%%% The Application Property '||
+                   '"JAVA_WALLET_PATH" has Not Been Defined - Contact the '||
+                   'Application Administrator to Create the Property');
+            WHEN OTHERS THEN
+               RAISE_APPLICATION_ERROR(-20101,'%%% Unhandled Error Obtaining '||
+                  'the "JAVA_WALLET_PATH" Property '||SQLERRM);
+         END;
+
          put_log('INVOKE_REST_SERVICE', 'p_url =' || p_url);
          put_log('INVOKE_REST_SERVICE', 'p_http_method =' || P_HTTP_METHOD);
          put_log('INVOKE_REST_SERVICE', 'p_username=' || p_username);
@@ -88,8 +106,8 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
 --       **********************
 --       *** Encode the URL ***
 --       **********************
-         l_rest_endpoint := utl_url.escape(p_url);
-         put_log('INVOKE_REST_SERVICE', 'Encoded l_rest_endpoint =' ||l_rest_endpoint);
+         l_rest_endpoint := UTL_URL.ESCAPE(p_url);
+         put_log('INVOKE_REST_SERVICE','Encoded l_rest_endpoint =' ||l_rest_endpoint);
          l_http_request := UTL_HTTP.BEGIN_REQUEST(l_rest_endpoint,p_http_method,'HTTP/1.1');
 
 --       ***********************
@@ -100,80 +118,88 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
 
          BEGIN
             IF (P_HTTP_METHOD = 'GET') THEN
-                put_log ('INVOKE_REST_SERVICE', 'Processing GET request');                
+                put_log ('INVOKE_REST_SERVICE','Processing GET request');
 
             ELSIF (P_HTTP_METHOD = 'POST') THEN
                 put_log('INVOKE_REST_SERVICE', 'Processing POST request');
                 IF (P_INPUT_PAYLOAD IS NULL) THEN
-                RAISE_APPLICATION_ERROR (-20006,'Input payload can not be null when the operation is POST.');
+                   RAISE_APPLICATION_ERROR (-20006,'Input payload can not be '||
+                       'null when the operation is POST.');
                 END IF;
-                
+
                 UTL_HTTP.SET_HEADER (L_HTTP_REQUEST,
                                 'Content-Type',
                                 'text/xml; charset=utf-8');
-                put_log ('INVOKE_REST_SERVICE', 'Done setting Content-Type header as text/xml');     
-                
+                put_log ('INVOKE_REST_SERVICE', 'Done setting Content-Type '||
+                         'header as text/xml');
+
                 L_REQ_LENGTH := DBMS_LOB.GETLENGTH (P_INPUT_PAYLOAD);
                 PUT_LOG ('INVOKE_REST_SERVICE',
                   'input Payload length =' || L_REQ_LENGTH);
-                                    
+
 --               **********************************************
 --               *** read payload and populate http request ***
 --               **********************************************
                  IF (L_REQ_LENGTH <= 32767)
                  THEN
-                    UTL_HTTP.SET_HEADER (L_HTTP_REQUEST, 'Content-Length', L_REQ_LENGTH); 
-                     put_log ('INVOKE_REST_SERVICE', 'Done setting Content-Length header as ' || L_REQ_LENGTH);
-                    UTL_HTTP.WRITE_TEXT (L_HTTP_REQUEST, P_INPUT_PAYLOAD);
+                    UTL_HTTP.SET_HEADER (l_http_request, 'Content-Length', l_req_length);
+                     put_log ('INVOKE_REST_SERVICE', 'Done setting Content-Length '||
+                              'header as '||l_req_length);
+                    UTL_HTTP.WRITE_TEXT (l_http_request, p_input_payload);
                  ELSE
-                    UTL_HTTP.SET_HEADER (L_HTTP_REQUEST, 'Transfer-Encoding', 'chunked');
-                    LOOP
-                       DBMS_LOB.READ (P_INPUT_PAYLOAD,
-                                      AMOUNT,
-                                      OFFSET,
-                                      BUFFER);
-                       UTL_HTTP.WRITE_TEXT (L_HTTP_REQUEST, BUFFER);
-                       OFFSET := OFFSET + AMOUNT;
-                    END LOOP;
-                 END IF;
-                 put_log ('INVOKE_REST_SERVICE', 'Done writing P_INPUT_PAYLOAD');             
-                         
+                    UTL_HTTP.SET_HEADER (l_http_request, 'Transfer-Encoding', 'chunked');
+                    BEGIN
+                      LOOP
+                         DBMS_LOB.READ (p_input_payload,
+                                      amount,
+                                      offset,
+                                      buffer);
+                         UTL_HTTP.WRITE_TEXT (l_http_request, buffer);
+                         offset := offset + amount;
+                       END LOOP;
+                    EXCEPTION WHEN NO_DATA_FOUND THEN    
+                      put_log ('INVOKE_REST_SERVICE', 'Done writing P_INPUT_PAYLOAD');
+                    END;
+                 END IF;                
+
             ELSE
                 RAISE_APPLICATION_ERROR (-20007,'Invalid http method. '||
                    'Only GET and POST are supported.');
             END IF;
 
---               **********************************************
---               *** process http request and read response ***
---               **********************************************            
-                l_http_response := UTL_HTTP.get_response(l_http_request);
-                put_log ('INVOKE_REST_SERVICE', 'Status code : ' || l_http_response.status_code);
-                IF (l_http_response.status_code = UTL_HTTP.HTTP_OK) then
-                    BEGIN
-                        LOOP
-                           UTL_HTTP.READ_TEXT (L_HTTP_RESPONSE, L_TEXT, 32766);
-                           put_log('INVOKE_REST_SERVICE','Chunk of 32766 chars : ' || L_TEXT);
-                           DBMS_LOB.WRITEAPPEND (p_response, LENGTH (L_TEXT), L_TEXT);
-                        END LOOP;
-                    EXCEPTION
-                       WHEN UTL_HTTP.END_OF_BODY THEN
-                          UTL_HTTP.END_RESPONSE (L_HTTP_RESPONSE);
-                       WHEN OTHERS THEN
-                          put_log('INVOKE_REST_SERVICE',SQLERRM);
-                    END;
-                    put_log('INVOKE_REST_SERVICE','Response length : ' ||
-                        DBMS_LOB.getlength(p_response));
-                    p_status_code := 'S';
-               ELSE
-                    p_status_code := 'E';
-               END IF;
-               
+--          **********************************************
+--          *** process http request and read response ***
+--          **********************************************
+            l_http_response := UTL_HTTP.get_response(l_http_request);
+            put_log ('INVOKE_REST_SERVICE', 'Status code : ' || l_http_response.status_code);
+            IF (l_http_response.status_code = UTL_HTTP.HTTP_OK) then
+                BEGIN
+                   LOOP
+                       UTL_HTTP.READ_TEXT (L_HTTP_RESPONSE, L_TEXT, 32766);
+                        put_log('INVOKE_REST_SERVICE','Chunk of 32766 chars : ' || L_TEXT);
+                        DBMS_LOB.WRITEAPPEND (p_response, LENGTH (L_TEXT), L_TEXT);
+                   END LOOP;
+                EXCEPTION
+                   WHEN UTL_HTTP.END_OF_BODY THEN
+                        UTL_HTTP.END_RESPONSE (L_HTTP_RESPONSE);
+                   WHEN OTHERS THEN
+                        put_log('INVOKE_REST_SERVICE',SQLERRM);
+                END;
+                   put_log('INVOKE_REST_SERVICE','Response length : ' ||
+                            DBMS_LOB.getlength(p_response));
+                   p_status_code := 'S';
+           ELSE
+               p_status_code := 'E';
+           END IF;
+
          EXCEPTION WHEN OTHERS THEN
             put_log('INVOKE_REST_SERVICE','Execption raised');
             p_error_message := UTL_HTTP.GET_DETAILED_SQLCODE||UTL_HTTP.GET_DETAILED_SQLERRM || SQLERRM;
          END;
+
          put_log('INVOKE_REST_SERVICE','Status : ' ||p_status_code );
          UTL_HTTP.END_REQUEST(l_http_request);
+
 --   *************************
 --   *** Exception Handler ***
 --   *************************
@@ -182,6 +208,7 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
             'INVOKE_REST_SERVICE');
 
      END invoke_rest_service;
+
 
 --    **************************************************************************
 --    ***                                                                    ***
@@ -216,6 +243,7 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
                   java.lang.String,
                   oracle.sql.ARRAY[],
                   java.lang.String[])';
+
 
 --    **************************************************************************
 --    ***                                                                    ***
@@ -336,7 +364,7 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
 --                   *** for the Current Study DCM                         ***
 --                   *********************************************************
                      PUT_LOG('extractClinicalDataFromURL','Calling invoke_rest_service');
-                     DBMS_LOB.CREATETEMPORARY (l_response, true);                     
+                     DBMS_LOB.CREATETEMPORARY (l_response, true);
                      tmsint_java_xfer_utils.invoke_rest_service
                         (p_url           =>  source_url,
                          p_input_payload =>  NULL,
@@ -432,9 +460,10 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
          status_rtn        VARCHAR2(4000)    := NULL;
          errm              VARCHAR2(32767)   := NULL;
          out_status_code   VARCHAR2(1000)    := NULL;
-         out_response_body  CLOB;
+         out_response_body CLOB;
          l_input_payload    CLOB;
          l_payload_length       BINARY_INTEGER;
+
       BEGIN
 --       ************************************
 --       *** Verify pJobTab Contains Data ***
@@ -444,9 +473,9 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
              RETURN errm;
          END IF;
 
-          dbms_lob.createtemporary(out_response_body,false);
-          dbms_lob.createtemporary(l_input_payload,false);
-          
+         DBMS_LOB.CREATETEMPORARY(out_response_body,FALSE);
+         DBMS_LOB.CREATETEMPORARY(l_input_payload,FALSE);
+
 --       *****************************************************
 --       *** For Each Study for the Corresponding JobID... ***
 --       *****************************************************
@@ -463,30 +492,28 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
 --                   *** Update Client Source System with HTML Text... ***
 --                   *****************************************************
                      BEGIN
-                       
-                       put_log('importClinicalDataFromURL', '****************************');
-                       put_log('importClinicalDataFromURL', 'url - '||  '');
-                       put_log('importClinicalDataFromURL', 'seqno - '||  pImpTab(j).seqno);
-                       put_log('importClinicalDataFromURL', 'html_text - '||  pImpTab(j).html_text);
-                       
---                   *****************************************************************
---                   *** Reset l_input_payload CLOB and populate it with html text ***
---                   *****************************************************************
-                       l_payload_length := dbms_lob.GETLENGTH(l_input_payload);
-                       dbms_lob.erase(l_input_payload,l_payload_length,1);
-                       dbms_lob.write(l_input_payload, LENGTH(pImpTab(j).html_text), 1, pImpTab(j).html_text);
-                       
-                        tmsint_java_xfer_utils.invoke_rest_service
---                        (p_url           =>  pJobTab(i).postfile_url,
-                         (p_url           =>  'https://bmsdev.mdsol.com/RaveWebServices/webservice.aspx?PostODMClinicalData',
-                         p_input_payload =>  l_input_payload,
-                         p_http_method   => 'POST' ,
-                         p_username      =>  pJobTab(i).url_username,
-                         p_password      =>  pJobTab(i).url_password,
-                         p_response      =>  out_response_body,
-                         p_status_code   =>  out_status_code,
-                         p_error_message =>  errm);
+                        put_log('importClinicalDataFromURL', '****************************');
+                        put_log('importClinicalDataFromURL', 'url - '||  pJobTab(i).url);
+                        put_log('importClinicalDataFromURL', 'seqno - '||  pImpTab(j).seqno);
+                        put_log('importClinicalDataFromURL', 'html_text - '||  pImpTab(j).html_text);
 
+--                     *****************************************************************
+--                     *** Reset l_input_payload CLOB and populate it with html text ***
+--                     *****************************************************************
+                       l_payload_length := DBMS_LOB.GETLENGTH(l_input_payload);
+                       DBMS_LOB.ERASE(l_input_payload,l_payload_length,1);
+                       DBMS_LOB.WRITE(l_input_payload, LENGTH(pImpTab(j).html_text),
+                          1, pImpTab(j).html_text);
+
+                       tmsint_java_xfer_utils.invoke_rest_service
+                         (p_url           =>  pJobTab(i).url,
+                          p_input_payload =>  l_input_payload,
+                          p_http_method   => 'POST' ,
+                          p_username      =>  pJobTab(i).url_username,
+                          p_password      =>  pJobTab(i).url_password,
+                          p_response      =>  out_response_body,
+                          p_status_code   =>  out_status_code,
+                          p_error_message =>  errm);
                      EXCEPTION WHEN OTHERS THEN
                         errm := '%%% Unhandled Error in Call to Java '||
                             'Process postClinicalDataToMedidata '||SQLERRM;
@@ -502,20 +529,20 @@ create or replace PACKAGE BODY tmsint_java_xfer_utils
                          pImpTab(j).process_flag        := 'Y';
                          pImpTab(j).process_ts          :=  SYSDATE;
                          pImpTab(j).process_status_code :=  NULL;
-                         pImpTab(j).process_error_msg   :=  dbms_lob.SUBSTR(out_response_body,4000,1);
+                         pImpTab(j).process_error_msg   :=  DBMS_LOB.SUBSTR(out_response_body,4000,1);
                      ELSE
-                         status_rtn                     := SUBSTR(errm,1,1000);
+                         status_rtn                     :=  SUBSTR(errm,1,1000);
                          pImpTab(j).process_flag        := 'E';
                          pImpTab(j).process_ts          :=  SYSDATE;
                          pimptab(j).process_status_code :=  SUBSTR(errm,1,1000);
-                         pimptab(j).process_error_msg   :=  dbms_lob.SUBSTR(out_response_body,4000,1);
+                         pimptab(j).process_error_msg   :=  DBMS_LOB.SUBSTR(out_response_body,4000,1);
                      END IF;
                  END IF;
              END LOOP;  -- Patient HTML Import Record
          END LOOP;  -- End Job Study
-         
-         dbms_lob.freetemporary(out_response_body);
-         dbms_lob.freetemporary(l_input_payload);
+
+         DBMS_LOB.FREETEMPORARY(out_response_body);
+         DBMS_LOB.FREETEMPORARY(l_input_payload);
 
 --       *******************************************************************************
 --       *** Return Execution Status to Caller                                       ***
