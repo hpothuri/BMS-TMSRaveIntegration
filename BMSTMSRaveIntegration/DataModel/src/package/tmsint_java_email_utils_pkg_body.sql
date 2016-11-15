@@ -317,6 +317,10 @@
 --    *** Exception Handler  ***
 --    **************************
       EXCEPTION WHEN OTHERS THEN
+      
+         UTL_SMTP.CLOSE_DATA(l_mail_conn);
+         UTL_SMTP.QUIT(l_mail_conn); 
+            
          errm := '%%% Unhandled Error in TMSINT_JAVA_EMAIL_UTILS.EMAIL Sending Email to '||
             pEmailToList||' - '||SQLERRM;
 
