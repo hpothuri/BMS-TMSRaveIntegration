@@ -1,24 +1,55 @@
 -- *****************************************************************************
 -- ***                                                                       ***
--- *** Package Body :    tmsint_java_email_utils                             ***
+-- *** File Name:     tmsint_java_email_utils_pkg_body.sql                   ***
 -- ***                                                                       ***
--- *** Date Written: 14 November 2016                                        ***
+-- *** Date Written:  15 November 2016                                       ***
 -- ***                                                                       ***
--- *** Written By:   DBMS Consulting Inc.                                    ***
+-- *** Written By:    Harish Pothuri / DBMS Consulting Inc.                  ***
 -- ***                                                                       ***
--- *** Run as:       SYSTEM                                                  ***
+-- *** Package Name:  TMSINT_JAVA_EMAIL_UTILS (Package Body)                 ***
 -- ***                                                                       ***
--- *** Prerequisite: Oracle User TMSINT application's Java owner             ***
--- ***               must be pre-existing                                    ***
+-- *** Package Owner: TMS Integration JAVA Admin Owner (TMSINT_JAVA)         ***
 -- ***                                                                       ***
--- *** Description:  This script will create package tmsint_java_email_utils ***
--- ***               which is used for sending emails. This package is owned ***
--- ***               by account TMSINT application's Java owner.             ***
+-- *** Description:   This SQL Script will Create the Database Package       ***
+-- ***                TMSINT_JAVA_EMAIL_UTILS Containing the Application     ***
+-- ***                Email Utilities. The Application Owner Account and     ***
+-- ***                all XFER and PROC Accounts will be Granted EXECUTE     ***
+-- ***                Permission this Package.                               ***
+-- ***                                                                       ***
+-- *** Modification History:                                                 ***
+-- *** --------------------                                                  ***
+-- *** 15-NOV-2016 / Harish Pothuri - Initial Creation                       ***
 -- ***                                                                       ***
 -- *****************************************************************************
+   SET ECHO OFF
+   SET FEEDBACK OFF
+   COLUMN date_column NEW_VALUE curr_date NOPRINT
+   SELECT TO_CHAR(SYSDATE,'MMDDYY_HHMI') date_column FROM DUAL;
+   SET PAGESIZE 0
+   SET VERIFY OFF
+   SET TERMOUT OFF
+   SET SERVEROUTPUT ON SIZE UNLIMITED
+   SET TERMOUT ON
+   SET FEEDBACK OFF
+   SPOOL ../log/tmsint_java_email_utils_pkg_body_&curr_date..log
 
-CREATE OR REPLACE
-PACKAGE BODY tmsint_java_email_utils
+   SELECT 'Process:  '||'tmsint_java_email_utils_pkg_body.sql'   ||CHR(10)||
+          'Package:  '||'TMSINT_JAVA_EMAIL_UTILS Body'           ||CHR(10)||
+          'User:     '||USER                                    ||CHR(10)||
+          'Date:     '||TO_CHAR(SYSDATE,'DD-MON-YYYY HH:MI AM') ||CHR(10)||
+          'Instance: '||global_name
+   FROM global_name;
+   SET FEEDBACK ON
+
+   PROMPT 
+   PROMPT *********************************************************************
+   PROMPT ***      Creating TMSINT_JAVA_EMAIL_UTILS Package Body            ***
+   PROMPT *********************************************************************
+
+-- ****************************************************************************
+-- ***               TMSINT_JAVA_EMAIL_UTILS Package Body                   ***
+-- ****************************************************************************
+   CREATE OR REPLACE PACKAGE BODY tmsint_java_email_utils 
    AS
 
 --    **************************************************************************
@@ -30,7 +61,7 @@ PACKAGE BODY tmsint_java_email_utils
 --    ***                                                                    ***
 --    *** Description:  The Procedure will be Used to to Add Multiple        ***
 --    ***               Emai Rrecipients to  the Mail Connection.            ***
---    **************************************************************************
+--    **************************************************************************      
       PROCEDURE process_recipients(p_mail_conn IN OUT UTL_SMTP.CONNECTION,
                                    p_list      IN VARCHAR2)
      IS
@@ -91,7 +122,7 @@ PACKAGE BODY tmsint_java_email_utils
          FROM tmsint_adm_properties
          WHERE property_name = UPPER(TRIM(pPropertyName));
          RETURN out_property_value;
-
+ 
 --    *************************
 --    *** Exception Handler ***
 --    *************************
@@ -102,7 +133,7 @@ PACKAGE BODY tmsint_java_email_utils
         RAISE_APPLICATION_ERROR(-20101,errm);
 
       END get_property_value;
-
+       
 
 --    **************************************************************************
 --    ***                                                                    ***
@@ -123,7 +154,7 @@ PACKAGE BODY tmsint_java_email_utils
          pEmailSubject  IN VARCHAR2,
          pEmailBody     IN CLOB,
          pDebugFlag     IN VARCHAR2 DEFAULT 'N')
-      IS
+      IS      
           l_wallet_path           VARCHAR2(100)   :=  NULL;
           l_wallet_password       VARCHAR2(100)   := 'orawallet@123';
           l_from_address          VARCHAR2(100)   :=  NULL;
@@ -152,15 +183,15 @@ PACKAGE BODY tmsint_java_email_utils
 --       *** 4.) JAVA_EMAIL_SMTP_PORT            ***
 --       *** 5.) JAVA_EMAIL_SMTP_USERNAME        ***
 --       *******************************************
-         l_wallet_path   := tmsint_java_email_utils.get_property_value
+         l_wallet_path   := tmsint_java_email_utils.get_property_value 
                             (pPropertyName => 'JAVA_WALLET_PATH');
-         l_from_address  := tmsint_java_email_utils.get_property_value
+         l_from_address  := tmsint_java_email_utils.get_property_value 
                             (pPropertyName => 'JAVA_EMAIL_FROM_ADDRESS');
-         l_smtp_host     := tmsint_java_email_utils.get_property_value
+         l_smtp_host     := tmsint_java_email_utils.get_property_value 
                             (pPropertyName => 'JAVA_EMAIL_SMTP_HOST');
-         l_smtp_port     := TO_NUMBER(tmsint_java_email_utils.get_property_value
+         l_smtp_port     := TO_NUMBER(tmsint_java_email_utils.get_property_value 
                             (pPropertyName => 'JAVA_EMAIL_SMTP_PORT'));
-         l_mail_username := tmsint_java_email_utils.get_property_value
+         l_mail_username := tmsint_java_email_utils.get_property_value 
                            (pPropertyName => 'JAVA_EMAIL_SMTP_USERNAME');
          l_mail_password := tmsint_java_email_utils.get_property_value
                            (pPropertyName => 'JAVA_EMAIL_SMTP_PASSWORD');
@@ -172,14 +203,14 @@ PACKAGE BODY tmsint_java_email_utils
                 UTL_ENCODE.TEXT_ENCODE(l_mail_password, nls_charset, 1)
            INTO l_mail_username_encoded,
                 l_mail_password_encoded
-         FROM DUAL;
+         FROM DUAL;        
 
 --       ********************************
 --       *** Open the SMTP Connection ***
 --       ********************************
          BEGIN
             l_mail_conn := UTL_SMTP.OPEN_CONNECTION
-               (host             => l_smtp_host,
+               (host             => l_smtp_host, 
                 port             => l_smtp_port,
                 wallet_path      => l_wallet_path,
                 wallet_password  => l_wallet_password,
@@ -191,73 +222,73 @@ PACKAGE BODY tmsint_java_email_utils
 
 --       *********************************************************
 --       *** Calling EHLO to find server status and properties ***
---       *********************************************************
+--       *********************************************************                                           
          l_smtp_ehlo_replies := UTL_SMTP.EHLO(l_mail_conn, l_smtp_host);
          IF (UPPER(TRIM(pDebugFlag)) = 'Y') THEN
              DBMS_OUTPUT.PUT_LINE(' ***** Printing server properties *****');
-             FOR i IN l_smtp_ehlo_replies.FIRST .. l_smtp_ehlo_replies.LAST
+             FOR i IN l_smtp_ehlo_replies.FIRST .. l_smtp_ehlo_replies.LAST 
              LOOP
                 DBMS_OUTPUT.PUT_LINE(l_smtp_ehlo_replies(i).code ||
                                      l_smtp_ehlo_replies(i).text);
             END LOOP;
             DBMS_OUTPUT.PUT_LINE(' ***** End of printing server properties *****');
          END IF;
-
+       
 --       *********************************************************
 --       *** Calling HELO to start the communiation            ***
---       *********************************************************
+--       *********************************************************         
          l_smtp_command_reply := UTL_SMTP.HELO(l_mail_conn, l_smtp_host);
          IF (UPPER(TRIM(pDebugFlag)) = 'Y') THEN
              DBMS_OUTPUT.PUT_LINE('HELO response - '        ||
                                    l_smtp_command_reply.code||
                                    l_smtp_command_reply.text);
          END IF;
-
+       
 --       *********************************************************
 --       *** Calling STARTTLS to initiate TLS communication    ***
---       *********************************************************
+--       *********************************************************          
          l_smtp_command_reply :=  UTL_SMTP.STARTTLS(l_mail_conn);
          IF (UPPER(TRIM(pDebugFlag)) = 'Y') THEN
              DBMS_OUTPUT.PUT_LINE('STARTTLS response - '    ||
                                   l_smtp_command_reply.code ||
-                                  l_smtp_command_reply.text);
+                                  l_smtp_command_reply.text);      
          END IF;
 
 --       *********************************************************
 --       *** Authenicating the user against the mail server    ***
---       *********************************************************
+--       ********************************************************* 
          l_smtp_command_reply := UTL_SMTP.COMMAND( l_mail_conn, 'AUTH', 'LOGIN');
          l_smtp_command_reply := UTL_SMTP.COMMAND( l_mail_conn, l_mail_username_encoded);
          l_smtp_command_reply := UTL_SMTP.COMMAND(l_mail_conn,l_mail_password_encoded);
          IF (UPPER(TRIM(pDebugFlag)) = 'Y') THEN
-             DBMS_OUTPUT.PUT_LINE('AUTH LOGIN response - '  ||
+             DBMS_OUTPUT.PUT_LINE('AUTH LOGIN response - '  || 
                                   l_smtp_command_reply.code ||
                                   l_smtp_command_reply.text);
              DBMS_OUTPUT.PUT_LINE('Setting USERNAME response - ' ||
-                                  l_smtp_command_reply.code      ||
+                                  l_smtp_command_reply.code      || 
                                   l_smtp_command_reply.text);
              DBMS_OUTPUT.PUT_LINE('Setting PASSWORD response - ' ||
                                   l_smtp_command_reply.code||
-                                  l_smtp_command_reply.text);
+                                  l_smtp_command_reply.text);          
          END IF;
 
 --       ***************************
 --       *** Processing mail     ***
---       ***************************
+--       ***************************        
          UTL_SMTP.MAIL(l_mail_conn, l_from_address);
          tmsint_java_email_utils.process_recipients(l_mail_conn, pEmailToList);
-         tmsint_java_email_utils.process_recipients(l_mail_conn, pEmailCCList);
+         tmsint_java_email_utils.process_recipients(l_mail_conn, pEmailCCList);        
 
          UTL_SMTP.OPEN_DATA(l_mail_conn);
          UTL_SMTP.WRITE_DATA(l_mail_conn, 'Date: '    || TO_CHAR(SYSDATE, 'DD-MON-YYYY HH24:MI:SS') || UTL_TCP.crlf);
-         UTL_SMTP.WRITE_DATA(l_mail_conn, 'To: '      || REPLACE(pEmailToList, ',', ';') || UTL_TCP.crlf);
-         IF (pEmailCCList IS NOT NULL) THEN
+         UTL_SMTP.WRITE_DATA(l_mail_conn, 'To: '      || REPLACE(pEmailToList, ',', ';') || UTL_TCP.crlf);    
+         IF (pEmailCCList IS NOT NULL) THEN    
              UTL_SMTP.WRITE_DATA(l_mail_conn, 'CC: '  || REPLACE(pEmailCCList, ',', ';') || UTL_TCP.crlf);
          END IF;
          UTL_SMTP.WRITE_DATA(l_mail_conn, 'From: '    || l_from_address || UTL_TCP.crlf);
          UTL_SMTP.WRITE_DATA(l_mail_conn, 'Subject: ' || pEmailSubject || UTL_TCP.crlf);
          UTL_SMTP.WRITE_DATA(l_mail_conn, 'Reply-To: '|| l_from_address || UTL_TCP.crlf || UTL_TCP.crlf);
-
+        
 --       ************************
 --       *** Write Email Body ***
 --       ************************
@@ -271,16 +302,16 @@ PACKAGE BODY tmsint_java_email_utils
          ELSE
              BEGIN
                 LOOP
-                  DBMS_LOB.READ (pEmailBody, l_amount, l_offset, l_buffer);
+                  DBMS_LOB.READ (pEmailBody, l_amount, l_offset, l_buffer);           
                   UTL_SMTP.WRITE_DATA(l_mail_conn, l_buffer);
                   l_offset := l_offset + l_amount;
-                END LOOP;
+                END LOOP;           
              EXCEPTION WHEN NO_DATA_FOUND THEN
                 UTL_SMTP.WRITE_DATA(l_mail_conn,UTL_TCP.crlf || UTL_TCP.crlf);
              END;
          END IF;
          UTL_SMTP.CLOSE_DATA(l_mail_conn);
-         UTL_SMTP.QUIT(l_mail_conn);
+         UTL_SMTP.QUIT(l_mail_conn);                          
 
 --    **************************
 --    *** Exception Handler  ***
@@ -304,9 +335,9 @@ PACKAGE BODY tmsint_java_email_utils
 
 
    END tmsint_java_email_utils;
-
 /
+  SHOW ERRORS
 
-SHOW ERRORS ;
-EXIT
-   
+  SPOOL OFF
+  EXIT
+
