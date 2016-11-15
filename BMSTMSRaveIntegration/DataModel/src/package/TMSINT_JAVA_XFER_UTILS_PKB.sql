@@ -1,4 +1,25 @@
-create or replace
+-- *****************************************************************************
+-- ***                                                                       ***
+-- *** Package Body :    tmsint_java_xfer_utils                              ***
+-- ***                                                                       ***
+-- *** Date Written: 14 November 2016                                        ***
+-- ***                                                                       ***
+-- *** Written By:   DBMS Consulting Inc.                                    ***
+-- ***                                                                       ***
+-- *** Run as:       SYSTEM                                                  ***
+-- ***                                                                       ***
+-- *** Prerequisite: Oracle User TMSINT application's Java owner             ***
+-- ***               must be pre-existing                                    ***
+-- ***                                                                       ***
+-- *** Description:  This script will create package tmsint_java_xfer_utils  ***
+-- ***               which is used for extracting and importing clinical data***
+-- ***               from the Medidata system using RAVE web services.       ***
+-- ***               This package is owned by account TMSINT application's   ***
+-- ***               Java owner.                                             ***
+-- ***                                                                       ***
+-- *****************************************************************************
+
+CREATE OR REPLACE
 PACKAGE BODY tmsint_java_xfer_utils
    AS
 
@@ -157,11 +178,10 @@ PACKAGE BODY tmsint_java_xfer_utils
                          UTL_HTTP.WRITE_TEXT (l_http_request, buffer);
                          offset := offset + amount;
                        END LOOP;
-                    EXCEPTION WHEN NO_DATA_FOUND THEN    
+                    EXCEPTION WHEN NO_DATA_FOUND THEN
                       put_log ('INVOKE_REST_SERVICE', 'Done writing P_INPUT_PAYLOAD');
                     END;
-                 END IF;                
-
+                 END IF;
             ELSE
                 RAISE_APPLICATION_ERROR (-20007,'Invalid http method. '||
                    'Only GET and POST are supported.');
@@ -205,83 +225,9 @@ PACKAGE BODY tmsint_java_xfer_utils
 --   *************************
      EXCEPTION WHEN OTHERS THEN
         RAISE_APPLICATION_ERROR(-20101,'%%% Unhandled Error in Procedure '||
-            'INVOKE_REST_SERVICE');
+            'INVOKE_REST_SERVICE' || SQLERRM);
 
      END invoke_rest_service;
-
-
---    **************************************************************************
---    ***                                                                    ***
---    *** Procedure:    getClinicalDataFromMedidata                          ***
---    ***                                                                    ***
---    *** Inputs:       pJobID                                               ***
---    ***               pSourceURL                                           ***
---    ***               pUserName                                            ***
---    ***               pPassword                                            ***
---    ***               pXMLResponse  (TMSINT_XFER_HTML_WS_OBJT Array)       ***
---    ***               pErrorMessage                                        ***
---    ***                                                                    ***
---    *** Description:  The Procedure GetClinicalDataFromMedidata is         ***
---    ***               Called From the Function extractClinicalDataFromURL  ***
---    ***               and will Call the Java Process                       ***
---    ***               ExtractClinicalData.getClinicalDataFromMedidata      ***
---    ***               for the Current Input Parameter Values               ***
---    ***                                                                    ***
---    **************************************************************************
-      PROCEDURE getClinicalDataFromMedidata
-        (pJobID         IN VARCHAR2,
-         pSourceURL     IN VARCHAR2,
-         pUserName      IN VARCHAR2,
-         pPassword      IN VARCHAR2,
-         pXMLResponse   OUT tmsint_xfer_html_ws_objt,
-         pErrorMessage  OUT VARCHAR2)
-      IS LANGUAGE JAVA
-         NAME 'com/rave/tmsint/ExtractClinicalData.getClinicalDataFromMedidata
-                 (java.lang.String,
-                  java.lang.String,
-                  java.lang.String,
-                  java.lang.String,
-                  oracle.sql.ARRAY[],
-                  java.lang.String[])';
-
-
---    **************************************************************************
---    ***                                                                    ***
---    *** Procedure:    postClinicalDataToMedidata                           ***
---    ***                                                                    ***
---    *** Inputs:       pPostUrl                                             ***
---    ***               pXLMReqBody                                          ***
---    ***               pUserName                                            ***
---    ***               pPassword                                            ***
---    ***                                                                    ***
---    *** Outputs:      pStatusCode                                          ***
---    ***               pResponsebody                                        ***
---    ***               pErrorMessage                                        ***
---    ***                                                                    ***
---    *** Description:  The Procedure PostClinicalDataFromMedidata is        ***
---    ***               Called From the Function ImportClinicalDataFromURL   ***
---    ***               and will Call the Java Process                       ***
---    ***               pistClinicalData.pstClinicalDataToMedidata for       ***
---    ***               the Current Input Parameter Values                   ***
---    ***                                                                    ***
---    **************************************************************************
-      PROCEDURE postClinicalDatatoMedidata
-        (pPosturl         IN VARCHAR2,
-         pXMLReqBody      IN VARCHAR2,
-         pUsername        IN VARCHAR2,
-         pPassword        IN VARCHAR2,
-         pStatusCode     OUT VARCHAR2,
-         pResponseBody   OUT VARCHAR2,
-         pErrorMessage   OUT VARCHAR2)
-      IS LANGUAGE JAVA
-         NAME 'com/rave/tmsint/ImportClinicalData.postClinicalDataToMedidata
-                (java.lang.String,
-                 java.lang.String,
-                 java.lang.String,
-                 java.lang.String,
-                 oracle.sql.String[],
-                 java.lang.String[],
-                 java.lang.String[])';
 
 --    **************************************************************************
 --    ***                                                                    ***
@@ -565,3 +511,8 @@ PACKAGE BODY tmsint_java_xfer_utils
 
 
    END tmsint_java_xfer_utils;
+
+/
+
+SHOW ERRORS ;
+EXIT

@@ -1,4 +1,26 @@
-create or replace PACKAGE tmsint_java_xfer_utils AUTHID DEFINER
+-- *****************************************************************************
+-- ***                                                                       ***
+-- *** Package Body :    tmsint_java_xfer_utils                              ***
+-- ***                                                                       ***
+-- *** Date Written: 14 November 2016                                        ***
+-- ***                                                                       ***
+-- *** Written By:   DBMS Consulting Inc.                                    ***
+-- ***                                                                       ***
+-- *** Run as:       SYSTEM                                                  ***
+-- ***                                                                       ***
+-- *** Prerequisite: Oracle User TMSINT application's Java owner             ***
+-- ***               must be pre-existing                                    ***
+-- ***                                                                       ***
+-- *** Description:  This script will create package tmsint_java_xfer_utils  ***
+-- ***               which is used for extracting and importing clinical data***
+-- ***               from the Medidata system using RAVE web services.       ***
+-- ***               This package is owned by account TMSINT application's   ***
+-- ***               Java owner.                                             ***
+-- ***                                                                       ***
+-- *****************************************************************************
+
+CREATE OR REPLACE 
+PACKAGE tmsint_java_xfer_utils AUTHID DEFINER
    AS
 --    ************************************
 --    *** Global Variable Declaration  ***
@@ -36,3 +58,8 @@ create or replace PACKAGE tmsint_java_xfer_utils AUTHID DEFINER
       RETURN VARCHAR2;
 
    END tmsint_java_xfer_utils;
+
+/
+
+SHOW ERRORS ;
+EXIT
