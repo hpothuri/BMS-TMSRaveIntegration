@@ -1,26 +1,61 @@
 -- *****************************************************************************
 -- ***                                                                       ***
--- *** Package Body :    tmsint_java_xfer_utils                              ***
+-- *** File Name:     tmsint_java_xfer_utils_pkg_body.sql                    ***
 -- ***                                                                       ***
--- *** Date Written: 14 November 2016                                        ***
+-- *** Date Written:  15 November 2016                                       ***
 -- ***                                                                       ***
--- *** Written By:   DBMS Consulting Inc.                                    ***
+-- *** Written By:    Harish Pothuri / DBMS Consulting Inc.                  ***
 -- ***                                                                       ***
--- *** Run as:       SYSTEM                                                  ***
+-- *** Package Name:  TMSINT_JAVA_XFER_UTILS (Package Body)                  ***
 -- ***                                                                       ***
--- *** Prerequisite: Oracle User TMSINT application's Java owner             ***
--- ***               must be pre-existing                                    ***
+-- *** Package Owner: TMS Integration JAVA Admin Owner (TMSINT_JAVA)         ***
 -- ***                                                                       ***
--- *** Description:  This script will create package tmsint_java_xfer_utils  ***
--- ***               which is used for extracting and importing clinical data***
--- ***               from the Medidata system using RAVE web services.       ***
--- ***               This package is owned by account TMSINT application's   ***
--- ***               Java owner.                                             ***
+-- *** Description:   This SQL Script will create the TMSINT_JAVA_XFER_UTILS ***
+-- ***                Database Package Containing the APIs Associated with   ***
+-- ***                TMSINT Application Java Functionality for Client       ***
+-- ***                EXTRACT and IMPORT Functionality.                      ***
+-- ***                This Database Package is Created and Owned by the      ***
+-- ***                TMSINT JAVA Application Owner, but is Callable ONLY    ***
+-- ***                by the Application XFER Accounts from within the       ***
+-- ***                the TMSINT_XFER_UTILS Package.                         ***
+-- ***                When a Client XFER Oracle Account is Created,          ***
+-- ***                EXECUTE Privilge will be GRANTED to the XFER           ***
+-- ***                Account and a Private SYNONYM Created.                 ***
+-- ***                                                                       ***
+-- *** Modification History:                                                 ***
+-- *** --------------------                                                  ***
+-- *** 15-NOV-2016 / Harish Pothuri - Initial Creation                       ***
 -- ***                                                                       ***
 -- *****************************************************************************
+   SET ECHO OFF
+   SET FEEDBACK OFF
+   COLUMN date_column NEW_VALUE curr_date NOPRINT
+   SELECT TO_CHAR(SYSDATE,'MMDDYY_HHMI') date_column FROM DUAL;
+   SET PAGESIZE 0
+   SET VERIFY OFF
+   SET TERMOUT OFF
+   SET SERVEROUTPUT ON SIZE UNLIMITED
+   SET TERMOUT ON
+   SET FEEDBACK OFF
+   SPOOL ../log/tmsint_java_xfer_utils_pkg_body_&curr_date..log
 
-CREATE OR REPLACE
-PACKAGE BODY tmsint_java_xfer_utils
+   SELECT 'Process:  '||'tmsint_java_xfer_utils_pkg_body.sql'   ||CHR(10)||
+          'Package:  '||'TMSINT_JAVA_XFER_UTILS Body'           ||CHR(10)||
+          'User:     '||USER                                    ||CHR(10)||
+          'Date:     '||TO_CHAR(SYSDATE,'DD-MON-YYYY HH:MI AM') ||CHR(10)||
+          'Instance: '||global_name
+   FROM global_name;
+   SET FEEDBACK ON
+
+   PROMPT 
+   PROMPT *********************************************************************
+   PROMPT ***      Creating TMSINT_JAVA_XFER_UTILS Package Body             ***
+   PROMPT *********************************************************************
+
+-- ****************************************************************************
+-- ***               TMSINT_JAVA_XFER_UTILS Package Body                    ***
+-- ****************************************************************************
+   CREATE OR REPLACE PACKAGE BODY tmsint_java_xfer_utils 
    AS
 
 --    **************************************************************************
@@ -178,10 +213,10 @@ PACKAGE BODY tmsint_java_xfer_utils
                          UTL_HTTP.WRITE_TEXT (l_http_request, buffer);
                          offset := offset + amount;
                        END LOOP;
-                    EXCEPTION WHEN NO_DATA_FOUND THEN
+                    EXCEPTION WHEN NO_DATA_FOUND THEN    
                       put_log ('INVOKE_REST_SERVICE', 'Done writing P_INPUT_PAYLOAD');
                     END;
-                 END IF;
+                 END IF;                
             ELSE
                 RAISE_APPLICATION_ERROR (-20007,'Invalid http method. '||
                    'Only GET and POST are supported.');
@@ -265,6 +300,8 @@ PACKAGE BODY tmsint_java_xfer_utils
          l_response     CLOB;
          l_xmlresponse  XMLTYPE;
          l_str          LONG;
+         l_resp_header_elem    VARCHAR2(400):= NULL;
+         l_resp_footer_elem    VARCHAR2(10) := '</ODM>';
       BEGIN
 --       ***********************************************
 --       *** Verify pJobTab and pDCMTab Contain Data ***
@@ -344,19 +381,47 @@ PACKAGE BODY tmsint_java_xfer_utils
                               put_log('extractClinicalDataFromURL',
                                   'Response line - '||(SUBSTR(l_str,1,INSTR(l_str,CHR(10))-1)));
                               l_xml_line := (SUBSTR(l_str,1,INSTR(l_str,CHR(10))-1));
+--                        ***************************************************************************
+--                        *** Populate header and footer for the first request and skip them in   ***
+--                        *** subsequent calls                                                    ***
+--                        *************************************************************************** 
+                              IF SUBSTR(l_xml_line,1,4) = '<ODM' THEN
+                                IF l_resp_header_elem IS NULL THEN
+                                  l_resp_header_elem := l_xml_line;
                               pExtTab.EXTEND;
                               pExtTab(pExtTab.LAST) := tmsint_xfer_html_ws_objr
                                 (pJobTab(i).url,                -- FILE_NAME
                                  l_xml_line,                    -- HTML_TEXT
                                  pJobTab(i).job_id);            -- JOB_ID
+                                END IF;
+                              ELSIF l_xml_line = l_resp_footer_elem THEN
+                                put_log('extractClinicalDataFromURL','Skipping footer element');
+                              ELSE  
+                                 pExtTab.EXTEND;
+                                 pExtTab(pExtTab.LAST) := tmsint_xfer_html_ws_objr
+                                                            (pJobTab(i).url,                -- FILE_NAME
+                                                             l_xml_line,                    -- HTML_TEXT
+                                                             pJobTab(i).job_id);            -- JOB_ID                                
+                              END IF;
                               l_str := SUBSTR(l_str,INSTR(l_str,CHR(10))+1);
                          END LOOP;
+                         
                          XMLResponseTAB := tmsint_xfer_html_ws_objt();
                       ELSE
                          RETURN errm;   -- Abort and Return to Caller
                       END IF;
                  END IF; -- Study DCM
              END LOOP;  -- End DCM
+             
+--      **************************************************************
+--      *** Add the footer at the last element in response         ***
+--      **************************************************************
+        pExtTab.EXTEND;
+        pExtTab(pExtTab.LAST) := tmsint_xfer_html_ws_objr
+                                    (pJobTab(i).url,                -- FILE_NAME
+                                     l_resp_footer_elem,            -- HTML_TEXT
+                                     pJobTab(i).job_id);            -- JOB_ID     
+
          END LOOP;  -- End Job Study
 
 --       ************************************
@@ -489,7 +554,7 @@ PACKAGE BODY tmsint_java_xfer_utils
 
          DBMS_LOB.FREETEMPORARY(out_response_body);
          DBMS_LOB.FREETEMPORARY(l_input_payload);
-
+	
 --       *******************************************************************************
 --       *** Return Execution Status to Caller                                       ***
 --       *** If No Import Errors Occurred, the STATUS_RTN will be NULL (Success)     ***
@@ -511,8 +576,9 @@ PACKAGE BODY tmsint_java_xfer_utils
 
 
    END tmsint_java_xfer_utils;
-
 /
+  SHOW ERRORS
 
-SHOW ERRORS ;
-EXIT
+  SPOOL OFF
+  EXIT
+
