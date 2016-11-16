@@ -55,7 +55,7 @@
 -- ****************************************************************************
 -- ***               TMSINT_JAVA_XFER_UTILS Package Body                    ***
 -- ****************************************************************************
-   CREATE OR REPLACE PACKAGE BODY tmsint_java_xfer_utils 
+ CREATE OR REPLACE PACKAGE BODY tmsint_java_xfer_utils 
    AS
 
 --    **************************************************************************
@@ -125,7 +125,7 @@
                    '"JAVA_WALLET_PATH" has Not Been Defined - Contact the '||
                    'Application Administrator to Create the Property');
             WHEN OTHERS THEN
-               RAISE_APPLICATION_ERROR(-20101,'%%% Unhandled Error Obtaining '||
+               RAISE_APPLICATION_ERROR(-20102,'%%% Unhandled Error Obtaining '||
                   'the "JAVA_WALLET_PATH" Property '||SQLERRM);
          END;
 
@@ -218,6 +218,7 @@
                     END;
                  END IF;                
             ELSE
+                UTL_HTTP.END_REQUEST(l_http_request);
                 RAISE_APPLICATION_ERROR (-20007,'Invalid http method. '||
                    'Only GET and POST are supported.');
             END IF;
@@ -227,29 +228,35 @@
 --          **********************************************
             l_http_response := UTL_HTTP.get_response(l_http_request);
             put_log ('INVOKE_REST_SERVICE', 'Status code : ' || l_http_response.status_code);
-            IF (l_http_response.status_code = UTL_HTTP.HTTP_OK) then
-                BEGIN
-                   LOOP
-                       UTL_HTTP.READ_TEXT (L_HTTP_RESPONSE, L_TEXT, 32766);
-                        put_log('INVOKE_REST_SERVICE','Chunk of 32766 chars : ' || L_TEXT);
-                        DBMS_LOB.WRITEAPPEND (p_response, LENGTH (L_TEXT), L_TEXT);
-                   END LOOP;
-                EXCEPTION
-                   WHEN UTL_HTTP.END_OF_BODY THEN
-                        UTL_HTTP.END_RESPONSE (L_HTTP_RESPONSE);
-                   WHEN OTHERS THEN
-                        put_log('INVOKE_REST_SERVICE',SQLERRM);
-                END;
-                   put_log('INVOKE_REST_SERVICE','Response length : ' ||
-                            DBMS_LOB.getlength(p_response));
-                   p_status_code := 'S';
-           ELSE
+             BEGIN
+               LOOP
+                    UTL_HTTP.READ_TEXT (L_HTTP_RESPONSE, L_TEXT, 32766);                    
+                    DBMS_LOB.WRITEAPPEND (p_response, LENGTH (L_TEXT), L_TEXT);
+               END LOOP;
+              EXCEPTION
+               WHEN UTL_HTTP.END_OF_BODY THEN
+                    UTL_HTTP.END_RESPONSE (L_HTTP_RESPONSE);
+               WHEN OTHERS THEN                    
+                    UTL_HTTP.END_REQUEST(l_http_request);
+                    p_status_code := 'E';
+                    p_error_message :=  UTL_HTTP.GET_DETAILED_SQLCODE||UTL_HTTP.GET_DETAILED_SQLERRM || SQLERRM;
+                    RETURN;
+              END;
+            put_log('INVOKE_REST_SERVICE','Response length : ' ||
+                        DBMS_LOB.getlength(p_response));
+                            
+            IF (l_http_response.status_code = UTL_HTTP.HTTP_OK) THEN               
+               p_status_code := 'S';
+            ELSE              
                p_status_code := 'E';
-           END IF;
+               p_error_message := l_http_response.status_code || ' : ' || l_http_response.reason_phrase;
+            END IF;
 
          EXCEPTION WHEN OTHERS THEN
-            put_log('INVOKE_REST_SERVICE','Execption raised');
+            UTL_HTTP.END_REQUEST(l_http_request);
+            p_status_code := 'E';
             p_error_message := UTL_HTTP.GET_DETAILED_SQLCODE||UTL_HTTP.GET_DETAILED_SQLERRM || SQLERRM;
+            RETURN;
          END;
 
          put_log('INVOKE_REST_SERVICE','Status : ' ||p_status_code );
@@ -259,7 +266,8 @@
 --   *** Exception Handler ***
 --   *************************
      EXCEPTION WHEN OTHERS THEN
-        RAISE_APPLICATION_ERROR(-20101,'%%% Unhandled Error in Procedure '||
+        UTL_HTTP.END_REQUEST(l_http_request);
+        RAISE_APPLICATION_ERROR(-20103,'%%% Unhandled Error in Procedure '||
             'INVOKE_REST_SERVICE' || SQLERRM);
 
      END invoke_rest_service;
@@ -415,13 +423,17 @@
              
 --      **************************************************************
 --      *** Add the footer at the last element in response         ***
---      **************************************************************
-        pExtTab.EXTEND;
-        pExtTab(pExtTab.LAST) := tmsint_xfer_html_ws_objr
+--      **************************************************************     
+         
+         IF l_resp_header_elem IS NOT NULL THEN
+            pExtTab.EXTEND;
+            pExtTab(pExtTab.LAST) := tmsint_xfer_html_ws_objr
                                     (pJobTab(i).url,                -- FILE_NAME
                                      l_resp_footer_elem,            -- HTML_TEXT
-                                     pJobTab(i).job_id);            -- JOB_ID     
-
+                                     pjobtab(i).job_id);            -- JOB_ID    
+           l_resp_header_elem := NULL;
+         END IF;
+         
          END LOOP;  -- End Job Study
 
 --       ************************************
@@ -483,7 +495,7 @@
              errm := '%%% Job Information Not Provided for Java Processing';
              RETURN errm;
          END IF;
-
+         
          DBMS_LOB.CREATETEMPORARY(out_response_body,FALSE);
          DBMS_LOB.CREATETEMPORARY(l_input_payload,FALSE);
 
@@ -491,7 +503,7 @@
 --       *** For Each Study for the Corresponding JobID... ***
 --       *****************************************************
          FOR i IN pJobTab.FIRST .. pJobTab.LAST LOOP
-
+         
 --           *******************************************************
 --           *** For Each Patient Record for the Current Study.. ***
 --           *******************************************************
@@ -512,7 +524,10 @@
 --                     *** Reset l_input_payload CLOB and populate it with html text ***
 --                     *****************************************************************
                        l_payload_length := DBMS_LOB.GETLENGTH(l_input_payload);
-                       DBMS_LOB.ERASE(l_input_payload,l_payload_length,1);
+                       put_log('importClinicalDataFromURL', 'Payload Length - '||  l_payload_length);
+                       IF l_payload_length > 0 THEN
+                          DBMS_LOB.ERASE(l_input_payload,l_payload_length,1);
+                       END IF;                      
                        DBMS_LOB.WRITE(l_input_payload, LENGTH(pImpTab(j).html_text),
                           1, pImpTab(j).html_text);
 
@@ -525,9 +540,14 @@
                           p_response      =>  out_response_body,
                           p_status_code   =>  out_status_code,
                           p_error_message =>  errm);
+                        
+                          put_log('importClinicalDataFromURL','out_response_body - ' || out_response_body);
+                          put_log('importClinicalDataFromURL','out_status_code - ' || out_status_code);
+                          put_log('importClinicalDataFromURL','errm - ' || errm);
+                          
                      EXCEPTION WHEN OTHERS THEN
-                        errm := '%%% Unhandled Error in Call to Java '||
-                            'Process postClinicalDataToMedidata '||SQLERRM;
+                        errm := '%%% Unhandled Error in Call to '||
+                            'Process invoke_rest_service '||SQLERRM;
                         RETURN errm;
                      END;
 
