@@ -26,6 +26,17 @@
             'QuanYin1',             -- URL_PASSWORD
             'CUMULATIVE',        -- EXTRACT_TYPE
             null);    -- EXRACT_TS
+            
+           pJobTab.EXTEND;
+         pJobTab(pJobTab.LAST) := tmsint_java_job_objr
+           (fake_job_id,                    -- JOB_ID
+            'BMS',             -- CLIENT_ALIAS
+            'TMS CODING STUDY 2(DEV)',               -- STUDY_NAME
+            'https://bmsdev.mdsol.com/RaveWebServices/studies/TMS CODING STUDY 2(DEV)/datasets/regular',             -- URL
+            'DCaruso',            -- URL_USERNAME
+            'QuanYin1',             -- URL_PASSWORD
+            'CUMULATIVE',        -- EXTRACT_TYPE
+            null);    -- EXRACT_TS
  
 --       *********************************************
 --       *** Populate pDCMTab for Current Study... ***
@@ -38,6 +49,13 @@
                (fake_job_id,                  -- JOB_ID
                 'TMS CODING STUDY 1(DEV)',             -- STUDY_NAME
                 'CONMED',                 -- DCM_NAME
+                'EXTRT_PREMED');                 -- VT_NAME
+                
+             pDCMTab.EXTEND;
+             pDCMTab(pDCMTab.LAST) := tmsint_java_dcm_objr
+               (fake_job_id,                  -- JOB_ID
+                'TMS CODING STUDY 1(DEV)',             -- STUDY_NAME
+                'PREMED',                 -- DCM_NAME
                 'EXTRT_PREMED');                 -- VT_NAME
 --         END LOOP;
 --      END LOOP;
@@ -74,6 +92,9 @@
          IF (java_rtn IS NULL) THEN
              dbms_output.put_line('Java Extract Completed Successfully');
              DBMS_OUTPUT.PUT_LINE('Number of lines extracted : ' || pExtTab.COUNT);
+           FOR i IN pExtTab.FIRST .. pExtTab.LAST LOOP
+           DBMS_OUTPUT.PUT_LINE(pExtTab(i).FILE_NAME || ' - '|| pExtTab(i).html_text);
+           END LOOP;
          else         
              RAISE_APPLICATION_ERROR(-20101,'%%% Error Returned from Java: '||java_rtn);
          END IF;         
